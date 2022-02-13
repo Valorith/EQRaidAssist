@@ -69,7 +69,7 @@ func getUserInput(scanner *FileScanner) {
 				fmt.Println("Error starting scanner: ", err)
 			}
 		case "run":
-			if !scanner.enabled {
+			if !scanner.IsRunning() {
 				if scanner.fileLocation != "" {
 					go scanner.scan()
 				} else {
@@ -77,7 +77,7 @@ func getUserInput(scanner *FileScanner) {
 				}
 			}
 		case "stop":
-			if scanner.enabled {
+			if scanner.IsRunning() {
 				fmt.Println("[Status] Stopping Scanner...")
 				scanner.enabled = false
 			} else {
