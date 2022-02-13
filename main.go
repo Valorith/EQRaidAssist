@@ -26,7 +26,9 @@ func main() {
 	players, err := loadPlayers(lastLoadedRaidFile) // loads players from the newest Raid Dump file in the EQ directory
 	if err != nil {
 		fmt.Println("Player load failed: ", err)
+		softExit()
 	}
+
 	playerCount := len(players)
 	if playerCount > 0 {
 		fmt.Printf("%d Players Succesfully loaded.\n", playerCount)
@@ -55,7 +57,15 @@ type FileScanner struct {
 	enabled      bool
 }
 
+func softExit() {
+	var userInput string
+	fmt.Println("Press enter to exit...")
+	fmt.Scanln(&userInput)
+	os.Exit(0)
+}
+
 func getUserInput(scanner *FileScanner) {
+	var err error
 	for {
 		fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
 		fmt.Println("-----------------")
@@ -64,16 +74,13 @@ func getUserInput(scanner *FileScanner) {
 		fmt.Scanln(&userInput)
 		switch userInput {
 		case "start":
-			err := scanner.Start()
-			if err != nil {
-				fmt.Println("Error starting scanner: ", err)
-			}
+			err = scanner.Start()
 		case "run":
 			if !scanner.IsRunning() {
 				if scanner.fileLocation != "" {
 					go scanner.scan()
 				} else {
-					fmt.Println("Error: No raid file location detected!")
+					err = fmt.Errorf("no raid file location detected")
 				}
 			}
 		case "stop":
@@ -81,7 +88,7 @@ func getUserInput(scanner *FileScanner) {
 				fmt.Println("[Status] Stopping Scanner...")
 				scanner.enabled = false
 			} else {
-				fmt.Println("The file scanner is not running.")
+				err = fmt.Errorf("the file scanner is not running")
 			}
 		case "exit":
 			fmt.Println("[Status] Exiting...")
@@ -91,6 +98,10 @@ func getUserInput(scanner *FileScanner) {
 			os.Exit(0)
 		default:
 			fmt.Println("[Status] Invalid command.")
+		}
+		if err != nil {
+			fmt.Println(userInput, " failed: ", err)
+			continue
 		}
 	}
 }
