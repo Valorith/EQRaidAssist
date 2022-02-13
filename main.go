@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		fmt.Println("lastLoadedRaidFile:", err)
 	}
-
+	fScanner := FileScanner{LoadedRaidFile, false}
 	//Load Players in
 	players, err := loadPlayers(lastLoadedRaidFile) // loads players from the newest Raid Dump file in the EQ directory
 	if err != nil {
@@ -37,10 +37,9 @@ func main() {
 	for _, player := range players {
 		player.PrintPlayer()
 	}
-	//fScanner := FileScanner{LoadedRaidFile, false}
-	//Start Scanning
-	//fScanner.Scan()
 
+	//Get User user input
+	getUserInput(&fScanner)
 }
 
 type Player struct {
@@ -54,6 +53,49 @@ type Player struct {
 type FileScanner struct {
 	fileLocation string
 	enabled      bool
+}
+
+func getUserInput(scanner *FileScanner) {
+	for {
+		fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
+		fmt.Println("-----------------")
+		fmt.Println("Enter a command:")
+		var userInput string
+		fmt.Scanln(&userInput)
+		switch userInput {
+		case "start":
+			if !scanner.enabled {
+				if scanner.fileLocation != "" {
+					go scanner.Scan()
+				} else {
+					fmt.Println("Error: No raid file location detected!")
+				}
+			}
+		case "run":
+			if !scanner.enabled {
+				if scanner.fileLocation != "" {
+					go scanner.Scan()
+				} else {
+					fmt.Println("Error: No raid file location detected!")
+				}
+			}
+		case "stop":
+			if scanner.enabled {
+				fmt.Println("[Status] Stopping Scanner...")
+				scanner.enabled = false
+			} else {
+				fmt.Println("The file scanner is not running.")
+			}
+		case "exit":
+			fmt.Println("[Status] Exiting...")
+			os.Exit(0)
+		case "quit":
+			fmt.Println("[Status] Exiting...")
+			os.Exit(0)
+		default:
+			fmt.Println("[Status] Invalid command.")
+		}
+	}
 }
 
 func getNewestRaidFile() (string, error) {
@@ -168,7 +210,7 @@ func (scanner *FileScanner) Scan() error {
 			} else {
 				fmt.Println("No new raid file detected.")
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 15)
 		} else {
 			return nil
 		}
