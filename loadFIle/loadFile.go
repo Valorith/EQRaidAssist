@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"time"
 )
 
 func Load(fileName string) []string {
@@ -30,4 +31,39 @@ func Load(fileName string) []string {
 	}
 
 	return fileLines
+}
+
+func GetFileSize(fileName string) (int64, error) {
+	// Open the file
+	file, err := os.Open(fileName)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	// Get the file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	return fileInfo.Size(), nil
+}
+
+func GetFileLastWrite(fileName string) (time.Time, error) {
+	// Open the file
+	file, err := os.Open(fileName)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer file.Close()
+
+	// Get the file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return fileInfo.ModTime(), nil
+
 }
