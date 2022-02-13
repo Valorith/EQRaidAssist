@@ -64,17 +64,14 @@ func getUserInput(scanner *FileScanner) {
 		fmt.Scanln(&userInput)
 		switch userInput {
 		case "start":
-			if !scanner.enabled {
-				if scanner.fileLocation != "" {
-					go scanner.Scan()
-				} else {
-					fmt.Println("Error: No raid file location detected!")
-				}
+			err := scanner.Start()
+			if err != nil {
+				fmt.Println("Error starting scanner: ", err)
 			}
 		case "run":
 			if !scanner.enabled {
 				if scanner.fileLocation != "" {
-					go scanner.Scan()
+					go scanner.scan()
 				} else {
 					fmt.Println("Error: No raid file location detected!")
 				}
@@ -176,14 +173,16 @@ func (player *Player) AddLoot(lootItem string) {
 	}
 }
 
-func (scanner *FileScanner) Scan() error {
+func (scanner *FileScanner) scan() error {
 	// Ensure Scanner fileLocation is set
 	if scanner.fileLocation == "" {
 		return nil
 	}
-	scanner.enabled = true // Ensure scanner is enabled
+	if !scanner.IsRunning() {
+		scanner.enabled = true // Ensure scanner is enabled
+	}
 	for {
-		if scanner.enabled {
+		if scanner.IsRunning() {
 			fmt.Println("Scanning File: ", scanner.fileLocation)
 			loadedRaidFile, err := getNewestRaidFile()
 			if err != nil {
@@ -215,4 +214,21 @@ func (scanner *FileScanner) Scan() error {
 			return nil
 		}
 	}
+}
+
+func (scanner *FileScanner) IsRunning() bool {
+	return scanner.enabled
+}
+
+func (scanner *FileScanner) Start() error {
+	if !scanner.IsRunning() {
+		if scanner.fileLocation != "" {
+			go scanner.scan()
+		} else {
+			return fmt.Errorf("no raid file location detected")
+		}
+	} else {
+		return fmt.Errorf("scanner is already running")
+	}
+	return nil
 }
