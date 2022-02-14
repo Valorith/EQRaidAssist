@@ -6,12 +6,13 @@ import (
 	"strings"
 )
 
+// Represents an EverQuest player
 type Player struct {
-	Name  string
-	Level int
-	Class string
-	Group int
-	Loot  []string
+	Name  string   // Name of the player
+	Level int      // Level of the player
+	Class string   // Class of the player
+	Group int      // Raid Group number
+	Loot  []string // Loot attributed to the player
 }
 
 // NewFromLine takes a line argument and creates a new player

@@ -11,20 +11,21 @@ import (
 
 	"github.com/Valorith/EQRaidAssist/loadFile"
 	"github.com/Valorith/EQRaidAssist/player"
+	"github.com/hpcloud/tail"
 )
 
 var (
 	mu                sync.RWMutex
-	isStarted         bool
-	loadedRaidFile    string
-	raidFrequency     time.Duration
-	loadedLogFile     string
-	logFrequency      time.Duration
+	isStarted         bool          // Flags the scanner as active or inactive
+	loadedRaidFile    string        // Directory of the raid dump file
+	raidFrequency     time.Duration // Frequency of the raid dump file scan
+	loadedLogFile     string        // Directory of the player's log file
+	logFrequency      time.Duration // Frequency of the log file scan
 	raidFrequencyChan chan int
-	players           []*player.Player
+	players           []*player.Player // Players detected within the raid dump file
 	stopSignalChan    chan bool
-	serverName        string
-	characterName     string
+	serverName        string // Server short name for reference in the log file directory
+	characterName     string // Character name for reference in the log file directory
 )
 
 func SetServerName(name string) error {
@@ -164,9 +165,34 @@ func scanRaid() error {
 	return nil
 }
 
+// Scans the character log for loot data
 func scanLog() error {
-	//logsFolder := EQpath + "\\Logs\\eqlog_" + charName + "_" + serverShortName + ".txt"
+	// Establish the log filepath
+	logFilePath, err := getLogDirectory()
+	if err != nil {
+		return fmt.Errorf("getLogDirectory: %w", err)
+	}
+	// Monitor the character log file for loot messages
+	t, err := tail.TailFile(logFilePath, tail.Config{Follow: true})
+	if err != nil {
+		return fmt.Errorf("tail.TailFile: %w", err)
+	}
+	for line := range t.Lines {
+		if !isStarted {
+			return fmt.Errorf("scanLog: t.lines: exited log scan due to scanner being disabled")
+		}
+		fmt.Println(line.Text)
+	}
 	return nil
+}
+
+func getLogDirectory() (string, error) {
+	EQpath, err := os.Getwd() // Get the current working directory (used as EQpath)
+	if err != nil {
+		return "", fmt.Errorf("scanLog: os.Getwd: %w", err)
+	}
+	loadedLogFile = EQpath + "\\Logs\\eqlog_" + characterName + "_" + serverName + ".txt"
+	return loadedLogFile, nil
 }
 
 func getNewestRaidFile() (string, error) {
