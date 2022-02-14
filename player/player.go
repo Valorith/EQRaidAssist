@@ -47,16 +47,18 @@ func (p *Player) String() string {
 	out = fmt.Sprintf("%s\nGroup Number: %d", out, p.Group)
 	out = fmt.Sprintf("%s\nLoot: ", out)
 	for _, lootItem := range p.Loot {
-		out = fmt.Sprintf("%s\t %s", out, lootItem)
+		out = fmt.Sprintf("%s\t %s\n", out, lootItem)
 	}
 	out = fmt.Sprintf("%s\n------------------\n", out)
 	return out
 }
 
-func (p *Player) AddLoot(lootItem string) {
+func (p *Player) AddLoot(lootItem string) error {
 	if lootItem != "" {
 		p.Loot = append(p.Loot, lootItem)
 	} else {
 		fmt.Println("Error adding loot item: ", lootItem)
+		return fmt.Errorf("player: AddLoot: Error adding loot item: %s to player (%s)", lootItem, p.Name)
 	}
+	return nil
 }

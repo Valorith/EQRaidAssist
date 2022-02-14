@@ -185,6 +185,15 @@ func scanLog() error {
 			}
 
 			fmt.Printf("%s has received: %s\n", charName, itemName)
+			for _, player := range players {
+				if player.Name == charName {
+					err = player.AddLoot(itemName)
+					if err != nil {
+						return fmt.Errorf("scanLog: player.AddLoot: %w", err)
+					}
+					break
+				}
+			}
 		}
 	}
 	return nil
