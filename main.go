@@ -60,8 +60,10 @@ func main() {
 		var subCommand, value string
 		_, err = fmt.Scanln(&userInput, &subCommand, &value)
 		if err != nil {
-			fmt.Println("command error:", err)
-			continue
+			if !(err.Error() == "unexpected newline") { // Filter out this specific known error condition that is not of concern
+				fmt.Printf("command error: %s %s %s: %s\n", userInput, subCommand, value, err)
+				continue
+			}
 		}
 		//write a for loop to handle multiple commands
 		err = getUserInput(userInput, subCommand, value)
