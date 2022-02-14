@@ -3,19 +3,32 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
 
+var (
+	mu sync.RWMutex
+)
+
 func main() {
 	var err error
-
+	var count int //scanline arg return count
 	for {
 		var userInput string
 
 		if !scanner.IsServerNameSet() {
-			fmt.Printf("Enter the server short name: ")
-			fmt.Scanln(&userInput)
+			fmt.Printf("Enter your server short name: ")
+			count, err = fmt.Scanln(&userInput)
+			if err != nil {
+				fmt.Println("invalid server input:", err)
+				continue
+			}
+			if count != 1 {
+				fmt.Println("incorrect number of arguments for server name")
+				continue
+			}
 			err = scanner.SetServerName(userInput)
 			if err != nil {
 				fmt.Println("invalid server name:", err)
@@ -25,7 +38,15 @@ func main() {
 
 		if !scanner.IsCharacterNameSet() {
 			fmt.Printf("Enter your characters first name: ")
-			fmt.Scanln(&userInput)
+			count, err = fmt.Scanln(&userInput)
+			if err != nil {
+				fmt.Println("invalid name input:", err)
+				continue
+			}
+			if count != 1 {
+				fmt.Println("incorrect number of arguments for character name")
+				continue
+			}
 			err = scanner.SetCharacterName(userInput)
 			if err != nil {
 				fmt.Println("invalid character name:", err)
@@ -36,19 +57,27 @@ func main() {
 		fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
 		fmt.Println("-----------------")
 		fmt.Println("Enter a command:")
-
-		fmt.Scanln(&userInput)
-		err = getUserInput(userInput)
+		var subCommand, value string
+		_, err = fmt.Scanln(&userInput, &subCommand, &value)
 		if err != nil {
-			fmt.Printf("failed %s: %s\n", userInput, err)
+			fmt.Println("command error:", err)
+			continue
+		}
+		//write a for loop to handle multiple commands
+		err = getUserInput(userInput, subCommand, value)
+		if err != nil {
+			fmt.Printf("failed command: %s %s %s: %s\n", userInput, subCommand, value, err)
+			continue
 		}
 	}
-
 }
 
-func getUserInput(input string) error {
+func getUserInput(input, subcommand, value string) error {
+	mu.Lock()
+	defer mu.Unlock()
 	var err error
 
+	// Primary Command Handler
 	switch input {
 	case "start":
 		err = scanner.Start()
@@ -61,6 +90,21 @@ func getUserInput(input string) error {
 	case "exit":
 		fmt.Println("[Status] Exiting...")
 		os.Exit(0)
+	case "set":
+		switch subcommand {
+		case "server":
+			fmt.Println("Setting server name to:", value)
+			err = scanner.SetServerName(value)
+			if err != nil {
+				return fmt.Errorf("getUserInput: invalid server name: %s", err)
+			}
+		}
+	case "get":
+		switch subcommand {
+		case "server":
+			serverName := scanner.GetServerName()
+			fmt.Println("Server Name:", serverName)
+		}
 	case "quit":
 		fmt.Println("[Status] Exiting...")
 		os.Exit(0)

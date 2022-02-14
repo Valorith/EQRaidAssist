@@ -34,6 +34,10 @@ func SetServerName(name string) error {
 	return nil
 }
 
+func GetServerName() string {
+	return serverName
+}
+
 func IsServerNameSet() bool {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -132,14 +136,13 @@ func scanRaid() error {
 		return fmt.Errorf("not started")
 	}
 
-	fmt.Println("ScanRaid started")
-
 	newFileLocation, err := getNewestRaidFile()
 	if err != nil {
 		return fmt.Errorf("getNewestRaidFile: %w", err)
 	}
 
 	if loadedRaidFile == newFileLocation {
+		fmt.Println("Already operating on the newest Raid Dump...")
 		return nil
 	}
 	loadedRaidFile = newFileLocation
@@ -162,7 +165,6 @@ func scanRaid() error {
 }
 
 func scanLog() error {
-	fmt.Println("log ran!")
 	//logsFolder := EQpath + "\\Logs\\eqlog_" + charName + "_" + serverShortName + ".txt"
 	return nil
 }
