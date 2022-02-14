@@ -73,11 +73,7 @@ func Start() error {
 	raidFrequencyChan = make(chan int)
 	stopSignalChan = make(chan bool)
 
-	//raidScanner = FileScanner{loadedRaidFile, 1, false, 15} // Raid Dump Scan (Scan Type = 1)
-	//logScanner = FileScanner{loadedLogFile, 2, false, 15}   // Log Scan (Scan Type = 2)
-
 	//Load Players in
-
 	err = scanRaid()
 	if err != nil {
 		fmt.Println("scanRaid failed:", err)
@@ -181,9 +177,28 @@ func scanLog() error {
 		if !isStarted {
 			return fmt.Errorf("scanLog: t.lines: exited log scan due to scanner being disabled")
 		}
-		fmt.Println(line.Text)
+		lineText := line.Text
+		if strings.Contains(lineText, "has been awarded to") {
+			charName, itemName, err := parseLootLine(lineText)
+			if err != nil {
+				return fmt.Errorf("scanLog: parseLootLine: %w", err)
+			}
+
+			fmt.Printf("%s has received: %s\n", charName, itemName)
+		}
 	}
 	return nil
+}
+
+func parseLootLine(line string) (string, string, error) {
+	// Get the item name
+	//dateTime := line[:strings.Index(line, "]")+1]
+	line = line[strings.Index(line, "]")+2:]
+	itemName := strings.Split(line, "has been awarded to")[0]
+	// Get the player name
+	playerName := strings.TrimSpace(strings.Split(line, "has been awarded to")[1])
+	playerName = playerName[:strings.Index(playerName, " ")]
+	return playerName, itemName, nil
 }
 
 func getLogDirectory() (string, error) {
