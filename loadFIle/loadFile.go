@@ -2,17 +2,17 @@ package loadFile
 
 import (
 	"bufio"
-	"log"
+	"fmt"
 	"os"
 	"time"
 )
 
-func Load(fileName string) []string {
+func Load(fileName string) ([]string, error) {
 	var fileLines []string
 	// Open the file
 	file, err := os.Open(fileName)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("open: %w", err)
 	}
 	defer file.Close()
 
@@ -25,12 +25,12 @@ func Load(fileName string) []string {
 	}
 
 	// Check for errors during Scan
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-		return nil
+	err = scanner.Err()
+	if err != nil {
+		return nil, fmt.Errorf("scanner err: %w", err)
 	}
 
-	return fileLines
+	return fileLines, nil
 }
 
 func GetFileSize(fileName string) (int64, error) {
