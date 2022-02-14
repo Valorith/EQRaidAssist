@@ -28,8 +28,8 @@ func main() {
 	}
 	lastLoadedRaidFile = loadedRaidFile
 
-	raidScanner = FileScanner{loadedRaidFile, 1, false} // Raid Dump Scan (Scan Type = 1)
-	logScanner = FileScanner{loadedLogFile, 2, false}   // Log Scan (Scan Type = 2)
+	raidScanner = FileScanner{loadedRaidFile, 1, false, 15} // Raid Dump Scan (Scan Type = 1)
+	logScanner = FileScanner{loadedLogFile, 2, false, 15}   // Log Scan (Scan Type = 2)
 	//Load Players in
 	players, err := loadPlayers(lastLoadedRaidFile) // loads players from the newest Raid Dump file in the EQ directory
 	if err != nil {
@@ -58,7 +58,6 @@ type Player struct {
 	Class string
 	Group int
 	Loot  []string
-	ScanFrequency int //Frequency in seconds
 }
 
 type Log struct {
@@ -67,13 +66,13 @@ type Log struct {
 	FileSize  int64
 	LastWrite time.Time
 	LogData   []string
-	ScanFrequency int //Frequency in seconds
 }
 
 type FileScanner struct {
-	fileLocation string
-	scanType     int
-	enabled      bool
+	fileLocation  string
+	scanType      int
+	enabled       bool
+	ScanFrequency int //Frequency in seconds
 }
 
 func softExit() {
@@ -97,9 +96,14 @@ func getUserInput() {
 				fileLocation := raidScanner.fileLocation
 				if fileLocation != "" {
 					raidScanner.SetScanFrequency(15)
-					go raidScanner.scan()
+					fmt.Println("Starting Up Raid Scanner...")
+					err := raidScanner.Start()
+					if err != nil {
+						fmt.Println("error in raid scanner start:", err)
+						continue
+					}
 				} else {
-					err = fmt.Errorf("file not detected at location: ", fileLocation)
+					err = fmt.Errorf("file not detected at location: %s", fileLocation)
 					fmt.Println(err)
 					continue
 				}
@@ -112,9 +116,14 @@ func getUserInput() {
 				fileLocation := logScanner.fileLocation
 				if fileLocation != "" {
 					logScanner.SetScanFrequency(15)
-					go logScanner.scan()
+					fmt.Println("Starting Up Log Scanner...")
+					err := logScanner.Start()
+					if err != nil {
+						fmt.Println("error in log scanner start:", err)
+						continue
+					}
 				} else {
-					err = fmt.Errorf("file not detected at location: ", fileLocation)
+					err = fmt.Errorf("file not detected at location: %s", fileLocation)
 					fmt.Println(err)
 					continue
 				}
@@ -128,9 +137,14 @@ func getUserInput() {
 				fileLocation := raidScanner.fileLocation
 				if fileLocation != "" {
 					raidScanner.SetScanFrequency(15)
-					go raidScanner.scan()
+					fmt.Println("Starting Up Raid Scanner...")
+					err := raidScanner.Start()
+					if err != nil {
+						fmt.Println("error in raid scanner start:", err)
+						continue
+					}
 				} else {
-					err = fmt.Errorf("file not detected at location: ", fileLocation)
+					err = fmt.Errorf("file not detected at location: %s", fileLocation)
 					fmt.Println(err)
 					continue
 				}
@@ -143,9 +157,14 @@ func getUserInput() {
 				fileLocation := logScanner.fileLocation
 				if fileLocation != "" {
 					logScanner.SetScanFrequency(15)
-					go logScanner.scan()
+					fmt.Println("Starting Up Log Scanner...")
+					err := logScanner.Start()
+					if err != nil {
+						fmt.Println("error in log scanner start:", err)
+						continue
+					}
 				} else {
-					err = fmt.Errorf("file not detected at location: ", fileLocation)
+					err = fmt.Errorf("file not detected at location: %s", fileLocation)
 					fmt.Println(err)
 					continue
 				}
@@ -156,7 +175,7 @@ func getUserInput() {
 			}
 		case "stop":
 			if raidScanner.IsRunning() {
-				fmt.Println("[Status] Stopping Scanner...")
+				fmt.Println("[Status] Stopping Raid Scanner...")
 				raidScanner.enabled = false
 			} else {
 				err = fmt.Errorf("the raid file scanner is not running")
@@ -164,7 +183,7 @@ func getUserInput() {
 				continue
 			}
 			if logScanner.IsRunning() {
-				fmt.Println("[Status] Stopping Scanner...")
+				fmt.Println("[Status] Stopping Log Scanner...")
 				logScanner.enabled = false
 			} else {
 				err = fmt.Errorf("the log file scanner is not running")
@@ -244,7 +263,7 @@ func getNewestLogFile() (string, error) {
 	charName = userInput
 
 	//Set character log file path
-	logsFolder := EQpath + "\\Logs\\eqlog_" + charName + serverShortName + ".txt"
+	logsFolder := EQpath + "\\Logs\\eqlog_" + charName + "_" + serverShortName + ".txt"
 	fmt.Println("Loading Log from: ", logsFolder)
 	return logsFolder, err
 }
@@ -273,13 +292,16 @@ func loadPlayers(fileLocation string) ([]Player, error) {
 func loadLog(fileLocation string) (Log, error) {
 	fmt.Println("Newest Raid Dump File Detected: ", fileLocation)
 	fileSize, err := loadFile.GetFileSize(fileLocation)
+	if err != nil {
+		return Log{}, fmt.Errorf("getFileSize: %w", err)
+	}
 	logLines := loadFile.Load(fileLocation)
 	log := Log{}
 	log.Directory = fileLocation
 	log.FileSize = fileSize
 
 	if len(logLines) == 0 {
-		err = fmt.Errorf("failed to load log at location: ", fileLocation)
+		err = fmt.Errorf("failed to load log at location: %s", fileLocation)
 		return Log{}, err
 	}
 	log.ClearData()
@@ -316,7 +338,7 @@ func (player *Player) AddLoot(lootItem string) {
 func (scanner *FileScanner) scan() error {
 	// Ensure Scanner fileLocation is set
 	if scanner.fileLocation == "" {
-		return nil
+		return fmt.Errorf("fileLocation is not set")
 	}
 	if !scanner.IsRunning() {
 		scanner.enabled = true // Ensure scanner is enabled
@@ -326,7 +348,7 @@ func (scanner *FileScanner) scan() error {
 			switch scanner.GetType() {
 			case 1:
 				//Scan Raid Dump file
-				fmt.Println("Scanning File: ", scanner.fileLocation)
+				fmt.Println("Scanning File:", scanner.fileLocation, "with a frequency of", scanner.ScanFrequency, "seconds")
 				loadedRaidFile, err := getNewestRaidFile()
 				if err != nil {
 					return err
@@ -352,33 +374,36 @@ func (scanner *FileScanner) scan() error {
 				} else {
 					fmt.Println("No new raid file detected.")
 				}
-				time.Sleep(time.Second * scanner.frequency)
+				time.Sleep(time.Second * time.Duration(scanner.ScanFrequency))
 			case 2:
 				//Scan character log file
-				fmt.Println("Scanning File: ", scanner.fileLocation)
+				fmt.Println("Scanning File:", scanner.fileLocation, "with a frequency of", scanner.ScanFrequency, "seconds")
 				logFileDir, err := getNewestLogFile()
 				if err != nil {
-					return fmt.Errorf("scan error: getNewestLogFile: %w", err)
-
+					fmt.Println("scan error: getNewestLogFile: %w", err)
+					continue
+				}
 				//Load log data in
 				log, err := loadLog(logFileDir) // loads players from the newest Raid Dump file in the EQ directory
 				if err != nil {
-					return fmt.Errorf("scan error: loadLog: %w", err)
+					fmt.Println("scan error: loadLog: %w", err)
+					continue
 				}
 				logLength := len(log.LogData)
 				if logLength > 0 {
 					fmt.Printf("%d Log entries succesfully loaded.\n", logLength)
 				} else {
-					fmt.Println("Log Loading Failed!")
+					fmt.Println("log loading failed. length = ", logLength)
+					continue
 				}
 
 				for _, logEntry := range log.LogData {
-					fmt.println(logEntry)
+					fmt.Println(logEntry)
 				}
 
-				time.Sleep(time.Second * scanner.frequency)
+				time.Sleep(time.Second * time.Duration(scanner.ScanFrequency))
 			}
-		} 
+		}
 	}
 }
 
@@ -386,13 +411,17 @@ func (scanner *FileScanner) IsRunning() bool {
 	return scanner.enabled
 }
 
-func (scanner *FileScanner) Start(frequency int) error {
+func (scanner *FileScanner) Start() error {
 	if !scanner.IsRunning() {
 		if scanner.fileLocation != "" {
-			scanner.SetScanFrequency(frequency)
+			scanChannel := make(chan error, 2)
 			go scanner.scan()
+			err := <-scanChannel
+			if err != nil {
+				return fmt.Errorf("scan error: %w", err)
+			}
 		} else {
-			return fmt.Errorf("no raid file location detected")
+			return fmt.Errorf("file location has not been set for the scanner")
 		}
 	} else {
 		return fmt.Errorf("scanner is already running")
@@ -409,16 +438,9 @@ func (scanner *FileScanner) GetType() int {
 }
 
 func (scanner *FileScanner) SetScanFrequency(frequency int) {
-	log.ScanFrequency = time.Second * frequency
-	return
+	scanner.ScanFrequency = frequency
 }
 
 func (log *Log) ClearData() {
 	log.LogData = []string{}
-	return
-}
-
-func (log *Log) SetScanFrequency(frequency int) {
-	log.ScanFrequency = time.Second * frequency
-	return
 }
