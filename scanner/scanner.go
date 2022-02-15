@@ -179,12 +179,12 @@ func scanLog() error {
 		}
 		lineText := line.Text
 		if strings.Contains(lineText, "has been awarded to") {
-			charName, itemName, err := parseLootLine(lineText)
+			charName, itemName, lootType, err := parseLootLine(lineText)
 			if err != nil {
 				return fmt.Errorf("scanLog: parseLootLine: %w", err)
 			}
 
-			fmt.Printf("%s has received: %s\n", charName, itemName)
+			fmt.Printf("%s has received %s from %s\n", charName, itemName, lootType)
 			for _, player := range players {
 				if player.Name == charName {
 					err = player.AddLoot(itemName)
@@ -199,15 +199,32 @@ func scanLog() error {
 	return nil
 }
 
-func parseLootLine(line string) (string, string, error) {
+func parseLootLine(line string) (string, string, string, error) {
 	// Get the item name
 	//dateTime := line[:strings.Index(line, "]")+1]
 	line = line[strings.Index(line, "]")+2:]
-	itemName := strings.Split(line, "has been awarded to")[0]
+	itemName := strings.TrimSpace(strings.Split(line, "has been awarded to")[0])
 	// Get the player name
 	playerName := strings.TrimSpace(strings.Split(line, "has been awarded to")[1])
 	playerName = playerName[:strings.Index(playerName, " ")]
-	return playerName, itemName, nil
+	// Get loot distribution type
+
+	masterLooterTake := "looted by the Master Looter."
+	assignedTo := "by the Master Looter."
+	randomTo := "by random roll."
+	lcAward := "by the Loot Council."
+	lootType := ""
+	if strings.Contains(line, masterLooterTake) {
+		lootType = "master looting."
+	} else if strings.Contains(line, assignedTo) {
+		lootType = "loot master assignment."
+	} else if strings.Contains(line, randomTo) {
+		lootType = "random assignment."
+	} else if strings.Contains(line, lcAward) {
+		lootType = "the Loot Council"
+	}
+
+	return playerName, itemName, lootType, nil
 }
 
 func getLogDirectory() (string, error) {
