@@ -103,7 +103,7 @@ func getUserInput(input, subcommand, value string) error {
 			fmt.Println("Setting character name to:", value)
 			err = scanner.SetCharacterName(value)
 			if err != nil {
-				return fmt.Errorf("getUserInput: invalid character name:", err)
+				return fmt.Errorf("getUserInput: invalid character name: %s->%s", value, err)
 			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
