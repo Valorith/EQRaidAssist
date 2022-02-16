@@ -68,7 +68,6 @@ func Start() error {
 		return nil
 	}
 	isStarted = true
-
 	err = setStartTime()
 	if err != nil {
 		return fmt.Errorf("Start: setStartTime: %w", err)
@@ -84,11 +83,9 @@ func Start() error {
 	}
 
 	go scanLog()
-	//if err != nil {
-	//	fmt.Println("scanLog failed:", err)
-	//}
 
 	go loop()
+	fmt.Println("Scanner Booting Up...")
 	return nil
 }
 
@@ -98,6 +95,7 @@ func Stop() {
 	defer mu.Unlock()
 	isStarted = false
 	stopSignalChan <- true
+	fmt.Println("Scanner Shutting Down...")
 }
 
 // loops for as long as scanner is running (noted by isStarted)
@@ -159,31 +157,34 @@ func scanRaid() error {
 }
 
 // Scans the character log for loot data
-func scanLog() error {
+func scanLog() {
+	mu.Lock()
+	defer mu.Unlock()
 	// Establish the log filepath
 	logFilePath, err := getLogDirectory()
 	if err != nil {
-		return fmt.Errorf("getLogDirectory: %w", err)
+		fmt.Printf("getLogDirectory: %s", err)
+		isStarted = false
+		return
 	}
 	// Monitor the character log file for loot messages
 	t, err := tail.TailFile(logFilePath, tail.Config{Follow: true})
 	if err != nil {
-		return fmt.Errorf("tail.TailFile: %w", err)
+		fmt.Printf("tail.TailFile: %s", err)
 	}
+
 	for line := range t.Lines {
 		if !isStarted {
-			return fmt.Errorf("scanLog: t.lines: exited log scan due to scanner being disabled")
+			fmt.Printf("scanLog: t.lines: exited log scan due to scanner being disabled")
+			return
 		}
 		lineText := line.Text
 
-		if err != nil {
-			return fmt.Errorf("parseDateTime: %w", err)
-		}
 		if isLootStatement(lineText) { // Filter out non loot statements
 			// Ensure the line occured after the start time
 			lineRecent, err := checkRecent(lineText)
 			if err != nil {
-				return fmt.Errorf("scanLog: lineIsRecent: %w", err)
+				fmt.Printf("scanLog: lineIsRecent: %s", err)
 			}
 			if !lineRecent {
 				continue
@@ -191,21 +192,20 @@ func scanLog() error {
 
 			charName, itemName, lootType, err := parseLootLine(lineText)
 			if err != nil {
-				return fmt.Errorf("scanLog: parseLootLine: %w", err)
+				fmt.Printf("scanLog: parseLootLine: %s", err)
 			}
 			fmt.Printf("%s has received %s from %s\n", charName, itemName, lootType)
 			for _, player := range players {
 				if player.Name == charName {
 					err = player.AddLoot(itemName)
 					if err != nil {
-						return fmt.Errorf("scanLog: player.AddLoot: %w", err)
+						fmt.Printf("scanLog: player.AddLoot: %s", err)
 					}
 					break
 				}
 			}
 		}
 	}
-	return nil
 }
 
 func setStartTime() error {
