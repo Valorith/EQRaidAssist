@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/discord"
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
 
@@ -75,6 +77,19 @@ func main() {
 	}
 }
 
+func startBot() error {
+	err := config.ReadConfig()
+
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+
+	discord.Start()
+
+	<-make(chan struct{})
+	return nil
+}
+
 func getUserInput(input, subcommand, value string) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -113,6 +128,21 @@ func getUserInput(input, subcommand, value string) error {
 				return fmt.Errorf("getUserInput: invalid timer value: %s", err)
 			}
 			scanner.SetRaidFrequency(intValue)
+		case "bot":
+			if value == "on" {
+				err = startBot()
+				if err != nil {
+					return fmt.Errorf("getUserInput: failed to start bot: %s", err)
+				}
+				fmt.Println("Booting up bot...")
+			} else if value == "off" {
+				err = discord.Stop()
+				if err != nil {
+					return fmt.Errorf("getUserInput: failed to stop bot: %s", err)
+				}
+			} else {
+				return fmt.Errorf("getUserInput: invalid bot command: %s", value)
+			}
 		}
 	case "get":
 		switch subcommand {
