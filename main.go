@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/Valorith/EQRaidAssist/scanner"
@@ -87,8 +88,6 @@ func getUserInput(input, subcommand, value string) error {
 		err = scanner.Start()
 	case "stop":
 		scanner.Stop()
-	case "timer":
-		scanner.SetRaidFrequency(16)
 	case "exit":
 		fmt.Println("[Status] Exiting...")
 		os.Exit(0)
@@ -100,6 +99,20 @@ func getUserInput(input, subcommand, value string) error {
 			if err != nil {
 				return fmt.Errorf("getUserInput: invalid server name: %s", err)
 			}
+		case "character":
+			fmt.Println("Setting character name to:", value)
+			err = scanner.SetCharacterName(value)
+			if err != nil {
+				return fmt.Errorf("getUserInput: invalid character name:", err)
+			}
+		case "timer":
+			fmt.Println("Setting timer to:", value)
+			// convert string to int
+			intValue, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("getUserInput: invalid timer value: %s", err)
+			}
+			scanner.SetRaidFrequency(intValue)
 		}
 	case "get":
 		switch subcommand {

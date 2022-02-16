@@ -21,7 +21,6 @@ var (
 	loadedRaidFile    string        // Directory of the raid dump file
 	raidFrequency     time.Duration // Frequency of the raid dump file scan
 	loadedLogFile     string        // Directory of the player's log file
-	logFrequency      time.Duration // Frequency of the log file scan
 	raidFrequencyChan chan int
 	players           []*player.Player // Players detected within the raid dump file
 	stopSignalChan    chan bool
@@ -74,8 +73,7 @@ func Start() error {
 	if err != nil {
 		return fmt.Errorf("Start: setStartTime: %w", err)
 	}
-	raidFrequency = 15 * time.Second
-	logFrequency = 1 * time.Second
+	raidFrequency = 1 * time.Minute
 	raidFrequencyChan = make(chan int)
 	stopSignalChan = make(chan bool)
 
@@ -85,10 +83,10 @@ func Start() error {
 		fmt.Println("scanRaid failed:", err)
 	}
 
-	err = scanLog()
-	if err != nil {
-		fmt.Println("scanLog failed:", err)
-	}
+	go scanLog()
+	//if err != nil {
+	//	fmt.Println("scanLog failed:", err)
+	//}
 
 	go loop()
 	return nil
@@ -106,7 +104,6 @@ func Stop() {
 func loop() {
 	mu.RLock()
 	raidTicker := time.NewTicker(raidFrequency)
-	logTicker := time.NewTicker(logFrequency)
 	mu.RUnlock()
 
 	for {
@@ -122,12 +119,6 @@ func loop() {
 			err := scanRaid()
 			if err != nil {
 				fmt.Println("scanRaid failed:", err)
-				continue
-			}
-		case <-logTicker.C:
-			err := scanLog()
-			if err != nil {
-				fmt.Println("scanLog failed:", err)
 				continue
 			}
 		}
