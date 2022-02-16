@@ -188,7 +188,7 @@ func scanLog() error {
 		if err != nil {
 			return fmt.Errorf("parseDateTime: %w", err)
 		}
-		if strings.Contains(lineText, "has been awarded to") { // Filter out non loot statements
+		if isLootStatement(lineText) { // Filter out non loot statements
 			// Ensure the line occured after the start time
 			lineRecent, err := checkRecent(lineText)
 			if err != nil {
@@ -220,38 +220,68 @@ func scanLog() error {
 func setStartTime() error {
 	currentYear, currentMonth, currenteDay := time.Now().Date()
 	currentHour, currentMinute, currentSecond := time.Now().Clock()
+	currentMonthInt, err := convertMonthToInt(currentMonth.String())
+	if err != nil {
+		return fmt.Errorf("setStartTime: convertMonthToInt: %w", err)
+	}
+	startTime = []int{currentYear, currentMonthInt, currenteDay, currentHour, currentMinute, currentSecond}
+	return nil
+}
+
+func convertMonthToInt(monthString string) (int, error) {
 	var currentMonthInt int
 	// convert month to int
-	switch currentMonth.String() {
+	switch monthString {
 	case "January":
+		currentMonthInt = 1
+	case "Jan":
 		currentMonthInt = 1
 	case "February":
 		currentMonthInt = 2
+	case "Feb":
+		currentMonthInt = 2
 	case "March":
 		currentMonthInt = 3
+	case "Mar":
+		currentMonthInt = 3
 	case "April":
+		currentMonthInt = 4
+	case "Apr":
 		currentMonthInt = 4
 	case "May":
 		currentMonthInt = 5
 	case "June":
 		currentMonthInt = 6
+	case "Jun":
+		currentMonthInt = 6
 	case "July":
+		currentMonthInt = 7
+	case "Jul":
 		currentMonthInt = 7
 	case "August":
 		currentMonthInt = 8
+	case "Aug":
+		currentMonthInt = 8
 	case "September":
+		currentMonthInt = 9
+	case "Sep":
 		currentMonthInt = 9
 	case "October":
 		currentMonthInt = 10
+	case "Oct":
+		currentMonthInt = 10
 	case "November":
+		currentMonthInt = 11
+	case "Nov":
 		currentMonthInt = 11
 	case "December":
 		currentMonthInt = 12
+	case "Dec":
+		currentMonthInt = 12
 	default:
-		return fmt.Errorf("setStartTime: invalid month: %s", currentMonth)
+		return 0, fmt.Errorf("setStartTime: invalid month: %s", monthString)
 	}
-	startTime = []int{currentYear, currentMonthInt, currenteDay, currentHour, currentMinute, currentSecond}
-	return nil
+	return currentMonthInt, nil
 }
 
 func checkRecent(line string) (bool, error) {
@@ -326,37 +356,18 @@ func parseDateTime(line string) (int, int, int, int, int, int, error) {
 		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
 	}
 
-	var month int
-	//convert month abreviation to number
-	switch monthString {
-	case "Jan":
-		month = 1
-	case "Feb":
-		month = 2
-	case "Mar":
-		month = 3
-	case "Apr":
-		month = 4
-	case "May":
-		month = 5
-	case "Jun":
-		month = 6
-	case "Jul":
-		month = 7
-	case "Aug":
-		month = 8
-	case "Sep":
-		month = 9
-	case "Oct":
-		month = 10
-	case "Nov":
-		month = 11
-	case "Dec":
-		month = 12
-	default:
-		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: unknown month: %s", monthString)
+	month, err := convertMonthToInt(monthString)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: convertMonthToInt: %w", err)
 	}
 	return year, month, day, hour, minute, second, nil
+}
+
+func isLootStatement(line string) bool {
+	if strings.Contains(line, "has been awarded to") || strings.Contains(line, "has been looted by the Master") {
+		return true
+	}
+	return false
 }
 
 func parseLootLine(line string) (string, string, string, error) {
@@ -374,6 +385,7 @@ func parseLootLine(line string) (string, string, string, error) {
 		// Get the player name
 		playerName = "Master Looter"
 	}
+
 	// Get loot distribution type
 	masterLooterTake := "looted by the Master Loot."
 	masterLooterTake = strings.ToLower(masterLooterTake)
