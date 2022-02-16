@@ -84,9 +84,8 @@ func startBot() error {
 		return fmt.Errorf(err.Error())
 	}
 
-	discord.Start()
+	go discord.Start()
 
-	<-make(chan struct{})
 	return nil
 }
 

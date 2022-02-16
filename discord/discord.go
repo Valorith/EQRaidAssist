@@ -9,9 +9,10 @@ import (
 
 var BotID string
 var goBot *discordgo.Session
+var err error
 
 func Start() {
-	goBot, err := discordgo.New("Bot " + config.Token)
+	goBot, err = discordgo.New("Bot " + config.Token)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -36,6 +37,7 @@ func Start() {
 	}
 
 	fmt.Println("Bot is running!")
+	<-make(chan struct{})
 }
 
 func Stop() error {
