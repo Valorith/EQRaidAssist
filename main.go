@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Valorith/EQRaidAssist/config"
 	"github.com/Valorith/EQRaidAssist/scanner"
@@ -20,6 +21,28 @@ func main() {
 	}
 
 	for {
+		if !scanner.IsCharacterNameSet() {
+			fmt.Printf("Enter the character name that you want to monitor (first name only): ")
+			count, err = fmt.Scanln(&userInput)
+			if err != nil {
+				fmt.Println("invalid name input:", err)
+				continue
+			}
+			if count != 1 {
+				fmt.Println("incorrect number of arguments for character name")
+				continue
+			}
+			err = scanner.SetCharacterName(strings.Title(userInput))
+			if err != nil {
+				fmt.Println("invalid character name:", err)
+				continue
+			}
+		}
+
+		if !scanner.IsServerNameSet() {
+			inferServerName()
+		}
+
 		if !scanner.IsServerNameSet() {
 			fmt.Printf("Enter your server short name: ")
 			count, err = fmt.Scanln(&userInput)
@@ -34,24 +57,6 @@ func main() {
 			err = scanner.SetServerName(userInput)
 			if err != nil {
 				fmt.Println("invalid server name:", err)
-				continue
-			}
-		}
-
-		if !scanner.IsCharacterNameSet() {
-			fmt.Printf("Enter your characters first name: ")
-			count, err = fmt.Scanln(&userInput)
-			if err != nil {
-				fmt.Println("invalid name input:", err)
-				continue
-			}
-			if count != 1 {
-				fmt.Println("incorrect number of arguments for character name")
-				continue
-			}
-			err = scanner.SetCharacterName(userInput)
-			if err != nil {
-				fmt.Println("invalid character name:", err)
 				continue
 			}
 		}
@@ -74,6 +79,56 @@ func printCommands() {
 	fmt.Printf("Get app variables: 'get <identifier>'\nSet app variables: 'set <identifier>'\n")
 	fmt.Println("-----------------")
 	fmt.Println("Enter a command:")
+}
+
+func inferServerName() {
+	// Attempt to infer the server name based upon the provided char name
+	fmt.Println("Attempting to infer server name...")
+	possibleServerNames, err := config.GetPossibleServerNames(scanner.GetCharacterName())
+	if err != nil {
+		fmt.Println("main: failed to load possible server names:", err)
+	}
+	if len(possibleServerNames) > 1 {
+		var err error
+		var count int //scanline arg return count
+		var userInput string
+		index := 1
+		for _, serverName := range possibleServerNames {
+			fmt.Printf("%d) %s\n", index, serverName)
+			index++
+		}
+		// Set the server to the selected server
+		fmt.Printf("Enter your server selection (1 - %d):\n", len(possibleServerNames))
+		count, err = fmt.Scanln(&userInput)
+		if err != nil {
+			fmt.Println("invalid server input:", err)
+			return
+		}
+		selection, err := strconv.Atoi(userInput)
+		if err != nil {
+			fmt.Println("strconv.Atoi:", err)
+			return
+		}
+		if count != 1 {
+			fmt.Println("incorrect number of arguments for server name")
+			return
+		}
+		selectedServer := possibleServerNames[selection-1]
+		fmt.Println("Setting server to:", selectedServer)
+		err = scanner.SetServerName(selectedServer)
+		if err != nil {
+			fmt.Println("invalid server name:", err)
+			return
+		}
+	} else if len(possibleServerNames) == 1 {
+		err = scanner.SetServerName(possibleServerNames[0])
+		if err != nil {
+			fmt.Println("main: failed to set server name:", err)
+		}
+		fmt.Printf("Setting server to: %s (infered)\n", possibleServerNames[0])
+	} else {
+		fmt.Println("main: failed to infer server name")
+	}
 }
 
 func getUserInput(input, subcommand, value string) {

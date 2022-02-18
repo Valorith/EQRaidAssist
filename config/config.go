@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -119,6 +122,52 @@ func SetWebHookUrl(url string) error {
 		return fmt.Errorf("SetBotToken(): %w", err)
 	}
 	return nil
+}
+
+func GetPossibleServerNames(charName string) ([]string, error) {
+	EQpath, err := os.Getwd()
+	if err != nil {
+		return []string{}, fmt.Errorf("os.Getwd(): %w", err)
+	}
+	//logsFolder := EQpath + "\\Logs"
+	//fmt.Println("Loading Players from: ", EQpath)
+	charFileList := []string{}
+	filePathError := filepath.Walk(EQpath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("filepath.Walk: %w", err)
+		}
+		//fmt.Printf("Scanning File: %s....\n", path)
+		isDir := info.IsDir()
+		fileName := info.Name()
+		comparisonString := charName + "_"
+		if !isDir {
+			//fmt.Printf("Scanning File: %s; comparing to: %s\n", fileName, comparisonString)
+			if strings.Contains(fileName, comparisonString) {
+				fileServerName := fileName[strings.LastIndex(fileName, "_")+1 : strings.LastIndex(fileName, ".")]
+				if !sliceContains(charFileList, fileServerName) {
+					charFileList = append(charFileList, fileServerName)
+				}
+			}
+		}
+		return nil
+	})
+
+	if filePathError != nil {
+		fmt.Println(filePathError)
+		return []string{}, fmt.Errorf("filepath.Walk: %w", filePathError)
+	}
+
+	return charFileList, nil
+}
+
+func sliceContains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
 }
 
 func ReadConfig() error {
