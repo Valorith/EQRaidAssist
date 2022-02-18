@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 
+	"github.com/Valorith/EQRaidAssist/config"
 	"github.com/Valorith/EQRaidAssist/scanner"
-)
-
-var (
-	mu sync.RWMutex
 )
 
 func main() {
 	var err error
 	var count int //scanline arg return count
 	var userInput string
+
+	err = config.ReadConfig()
+	if err != nil {
+		fmt.Printf("main: failed to read config: %s", err)
+	}
 
 	for {
 		if !scanner.IsServerNameSet() {
@@ -69,7 +70,7 @@ func main() {
 }
 
 func printCommands() {
-	fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
+	fmt.Printf("Commands:\nStart scanning raid file: 'start'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
 	fmt.Println("-----------------")
 	fmt.Println("Enter a command:")
 }
@@ -103,6 +104,30 @@ func getUserInput(input, subcommand, value string) {
 			err = scanner.SetCharacterName(value)
 			if err != nil {
 				fmt.Printf("getUserInput: invalid character name: %s->%s", value, err)
+			}
+		case "token":
+			fmt.Println("Setting bot token to:", value)
+			err = config.SetBotToken(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s", value, err)
+			}
+		case "prefix":
+			fmt.Println("Setting bot prefix to:", value)
+			err = config.SetBotPrefix(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s", value, err)
+			}
+		case "channel":
+			fmt.Println("Setting loot channel to:", value)
+			err = config.SetLootChannel(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s", value, err)
+			}
+		case "webhook":
+			fmt.Println("Setting webhook url to:", value)
+			err = config.SetWebHookUrl(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s", value, err)
 			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
