@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/Valorith/EQRaidAssist/config"
-	"github.com/Valorith/EQRaidAssist/discord"
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
 
@@ -37,8 +35,6 @@ func main() {
 				fmt.Println("invalid server name:", err)
 				continue
 			}
-		} else {
-			fmt.Println("Server name is already set...skipping")
 		}
 
 		if !scanner.IsCharacterNameSet() {
@@ -57,13 +53,9 @@ func main() {
 				fmt.Println("invalid character name:", err)
 				continue
 			}
-		} else {
-			fmt.Println("Character name is already set...skipping")
 		}
 
-		fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
-		fmt.Println("-----------------")
-		fmt.Println("Enter a command:")
+		printCommands()
 		var subCommand, value string
 		_, err = fmt.Scanln(&userInput, &subCommand, &value)
 		if err != nil {
@@ -76,21 +68,13 @@ func main() {
 	}
 }
 
-func startBot() error {
-	err := config.ReadConfig()
-
-	if err != nil {
-		return fmt.Errorf("startBot(): %s", err.Error())
-	}
-
-	go discord.Start()
-
-	return nil
+func printCommands() {
+	fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
+	fmt.Println("-----------------")
+	fmt.Println("Enter a command:")
 }
 
 func getUserInput(input, subcommand, value string) {
-	mu.Lock()
-	defer mu.Unlock()
 	var err error
 
 	// Primary Command Handler
@@ -128,21 +112,6 @@ func getUserInput(input, subcommand, value string) {
 				fmt.Printf("getUserInput: invalid timer value: %s", err)
 			}
 			scanner.SetRaidFrequency(intValue)
-		case "bot":
-			if value == "on" {
-				err = startBot()
-				if err != nil {
-					fmt.Printf("getUserInput: failed to start bot: %s", err)
-				}
-				fmt.Println("Booting up bot...")
-			} else if value == "off" {
-				err = discord.Stop()
-				if err != nil {
-					fmt.Printf("getUserInput: failed to stop bot: %s", err)
-				}
-			} else {
-				fmt.Printf("getUserInput: invalid bot command: %s", value)
-			}
 		}
 	case "get":
 		switch subcommand {

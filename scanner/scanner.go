@@ -70,8 +70,6 @@ func IsCharacterNameSet() bool {
 
 // Starts the scanner, runs until told to stop
 func Start() {
-	mu.Lock()
-	defer mu.Unlock()
 	var err error
 	if isStarted {
 		fmt.Println("scanner.Start(): scanner is already started")
@@ -143,7 +141,7 @@ func scanRaid() error {
 	}
 
 	if loadedRaidFile == newFileLocation {
-		fmt.Println("Already operating on the newest Raid Dump...")
+		//fmt.Println("Already operating on the newest Raid Dump...")
 		return nil
 	}
 	loadedRaidFile = newFileLocation
@@ -167,8 +165,6 @@ func scanRaid() error {
 
 // Scans the character log for loot data
 func scanLog() {
-	mu.Lock()
-	defer mu.Unlock()
 	fmt.Println("Log Scanner Booting Up...")
 	// Establish the log filepath
 	logFilePath, err := getLogDirectory()
@@ -177,7 +173,7 @@ func scanLog() {
 		isStarted = false
 		return
 	}
-	// Monitor the character log file for loot messages
+	// Monitor the character log file for loot messagess
 	t, err := tail.TailFile(logFilePath, tail.Config{Follow: true})
 	if err != nil {
 		fmt.Printf("tail.TailFile: %s", err)
@@ -226,8 +222,6 @@ func startBot() error {
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-
-	discord.Start()
 
 	return nil
 }
@@ -429,6 +423,9 @@ func parseLootLine(line string) (string, string, string, error) {
 }
 
 func getLogDirectory() (string, error) {
+	// Get the directory of the current executable
+	mu.Lock()
+	defer mu.Unlock()
 	EQpath, err := os.Getwd() // Get the current working directory (used as EQpath)
 	if err != nil {
 		return "", fmt.Errorf("scanLog: os.Getwd: %w", err)
