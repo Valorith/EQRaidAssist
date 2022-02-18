@@ -49,6 +49,18 @@ func GetServerName() string {
 	return serverName
 }
 
+func GetRaidTimer() string {
+	mu.Lock()
+	defer mu.Unlock()
+	return raidFrequency.String()
+}
+
+func GetCharacterName() string {
+	mu.Lock()
+	defer mu.Unlock()
+	return characterName
+}
+
 func IsServerNameSet() bool {
 	mu.RLock()
 	defer mu.RUnlock()

@@ -71,6 +71,7 @@ func main() {
 
 func printCommands() {
 	fmt.Printf("Commands:\nStart scanning raid file: 'start'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
+	fmt.Printf("Get app variables: 'get <identifier>'\nSet app variables: 'set <identifier>'\n")
 	fmt.Println("-----------------")
 	fmt.Println("Enter a command:")
 }
@@ -143,14 +144,44 @@ func getUserInput(input, subcommand, value string) {
 		case "server":
 			serverName := scanner.GetServerName()
 			fmt.Println("Server Name:", serverName)
+		case "character":
+			characterName := scanner.GetCharacterName()
+			fmt.Println("Character Name:", characterName)
+		case "token":
+			token, err := config.GetBotToken()
+			if err != nil {
+				fmt.Printf("GetBotToken(): %s", err)
+			}
+			fmt.Println("Bot Token:", token)
+		case "prefix":
+			prefix, err := config.GetBotPrefix()
+			if err != nil {
+				fmt.Printf("GetBotPrefix(): %s", err)
+			}
+			fmt.Println("Bot Prefix:", prefix)
+		case "channel":
+			channel, err := config.GetLootChannel()
+			if err != nil {
+				fmt.Printf("GetLootChannel(): %s", err)
+			}
+			fmt.Println("Bot Loot Channel:", channel)
+		case "webhook":
+			webHookUrl, err := config.GetWebHookUrl()
+			if err != nil {
+				fmt.Printf("GetWebHookUrl(): %s", err)
+			}
+			fmt.Println("Web Hook Url:", webHookUrl)
+		case "timer":
+			timer := scanner.GetRaidTimer()
+			fmt.Println("Raid file scan timer:", timer)
+		case "ping":
+			fmt.Println("Pong")
+		case "quit":
+			fmt.Println("[Status] Exiting...")
+			os.Exit(0)
+		default:
+			fmt.Println("invalid command")
 		}
-	case "ping":
-		fmt.Println("Pong")
-	case "quit":
-		fmt.Println("[Status] Exiting...")
-		os.Exit(0)
-	default:
-		fmt.Println("invalid command")
 	}
 	if err != nil {
 		fmt.Printf("failed command: %s %s %s: %s\n", input, subcommand, value, err)
