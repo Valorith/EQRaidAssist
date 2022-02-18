@@ -105,8 +105,6 @@ func Start() {
 	go loop()    // Loop through the scanner loop to detect new raid dump files
 	go scanLog() // Start scanning character log for loot data
 	startBot()   // Start the discord bot
-
-	fmt.Println("Scanner Booting Up...")
 }
 
 // Stop stops the scanner
@@ -212,9 +210,18 @@ func scanLog() {
 			if err != nil {
 				fmt.Printf("scanLog: parseLootLine: %s", err)
 			}
+
+			if lootType != "the Loot Council" { // Filter out all non loot council assignments
+				continue
+			}
+
 			lootMessage := charName + " has received " + itemName + " from " + lootType
 			fmt.Println(lootMessage)
+
+			// Send discord message via WebHook
 			discord.SendLootMessage(lootMessage)
+
+			// Assign loot to specific player
 			for _, player := range players {
 				if player.Name == charName {
 					err = player.AddLoot(itemName)

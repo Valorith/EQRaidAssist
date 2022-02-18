@@ -110,32 +110,32 @@ func getUserInput(input, subcommand, value string) {
 			fmt.Println("Setting bot token to:", value)
 			err = config.SetBotToken(value)
 			if err != nil {
-				fmt.Printf("getUserInput: %s->%s", value, err)
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
 		case "prefix":
 			fmt.Println("Setting bot prefix to:", value)
 			err = config.SetBotPrefix(value)
 			if err != nil {
-				fmt.Printf("getUserInput: %s->%s", value, err)
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
 		case "channel":
 			fmt.Println("Setting loot channel to:", value)
 			err = config.SetLootChannel(value)
 			if err != nil {
-				fmt.Printf("getUserInput: %s->%s", value, err)
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
 		case "webhook":
 			fmt.Println("Setting webhook url to:", value)
 			err = config.SetWebHookUrl(value)
 			if err != nil {
-				fmt.Printf("getUserInput: %s->%s", value, err)
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
 			// convert string to int
 			intValue, err := strconv.Atoi(value)
 			if err != nil {
-				fmt.Printf("getUserInput: invalid timer value: %s", err)
+				fmt.Printf("getUserInput: invalid timer value: %s\n", err)
 			}
 			scanner.SetRaidFrequency(intValue)
 		}
@@ -150,25 +150,25 @@ func getUserInput(input, subcommand, value string) {
 		case "token":
 			token, err := config.GetBotToken()
 			if err != nil {
-				fmt.Printf("GetBotToken(): %s", err)
+				fmt.Printf("GetBotToken(): %s\n", err)
 			}
 			fmt.Println("Bot Token:", token)
 		case "prefix":
 			prefix, err := config.GetBotPrefix()
 			if err != nil {
-				fmt.Printf("GetBotPrefix(): %s", err)
+				fmt.Printf("GetBotPrefix(): %s\n", err)
 			}
 			fmt.Println("Bot Prefix:", prefix)
 		case "channel":
 			channel, err := config.GetLootChannel()
 			if err != nil {
-				fmt.Printf("GetLootChannel(): %s", err)
+				fmt.Printf("GetLootChannel(): %s\n", err)
 			}
 			fmt.Println("Bot Loot Channel:", channel)
 		case "webhook":
 			webHookUrl, err := config.GetWebHookUrl()
 			if err != nil {
-				fmt.Printf("GetWebHookUrl(): %s", err)
+				fmt.Printf("GetWebHookUrl(): %s\n", err)
 			}
 			fmt.Println("Web Hook Url:", webHookUrl)
 		case "timer":
