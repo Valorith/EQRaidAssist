@@ -8,11 +8,17 @@ import (
 )
 
 var BotID string
+var lootChannelID string
 var goBot *discordgo.Session
 var err error
 
 func Start() {
-	goBot, err = discordgo.New("Bot " + config.Token)
+	token := config.Token // Discord bot token
+	if token == "" {
+		fmt.Println("No bot token found in config.json")
+		return
+	}
+	goBot, err = discordgo.New("Bot " + token)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -56,6 +62,17 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content == "ping" {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "pong")
+		_, err = s.ChannelMessageSend(m.ChannelID, "pong")
+	}
+	if err != nil {
+		fmt.Println("messageHandler:", err.Error())
+	}
+}
+
+func SendLootMessage(m string) {
+
+	_, err = goBot.ChannelMessageSend(config.LootChannel, m)
+	if err != nil {
+		fmt.Println("messageHandler:", err.Error())
 	}
 }

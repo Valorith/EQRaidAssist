@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/discord"
 	"github.com/Valorith/EQRaidAssist/loadFile"
 	"github.com/Valorith/EQRaidAssist/player"
 	"github.com/hpcloud/tail"
@@ -29,6 +31,11 @@ var (
 	startTime         []int  // Time the scanner was started
 )
 
+// Returns true if the file scanner is currently active
+func IsRunning() bool {
+	return isStarted
+}
+
 func SetServerName(name string) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -37,6 +44,8 @@ func SetServerName(name string) error {
 }
 
 func GetServerName() string {
+	mu.Lock()
+	defer mu.Unlock()
 	return serverName
 }
 
@@ -60,17 +69,18 @@ func IsCharacterNameSet() bool {
 }
 
 // Starts the scanner, runs until told to stop
-func Start() error {
-	var err error
+func Start() {
 	mu.Lock()
 	defer mu.Unlock()
+	var err error
 	if isStarted {
-		return nil
+		fmt.Println("scanner.Start(): scanner is already started")
+		return
 	}
 	isStarted = true
 	err = setStartTime()
 	if err != nil {
-		return fmt.Errorf("Start: setStartTime: %w", err)
+		fmt.Printf("scanner.Start(): setStartTime: %s", err)
 	}
 	raidFrequency = 1 * time.Minute
 	raidFrequencyChan = make(chan int)
@@ -82,11 +92,11 @@ func Start() error {
 		fmt.Println("scanRaid failed:", err)
 	}
 
-	go scanLog()
+	go loop()    // Loop through the scanner loop to detect new raid dump files
+	go scanLog() // Start scanning character log for loot data
+	startBot()   // Start the discord bot
 
-	go loop()
 	fmt.Println("Scanner Booting Up...")
-	return nil
 }
 
 // Stop stops the scanner
@@ -127,7 +137,6 @@ func scanRaid() error {
 	if !isStarted {
 		return fmt.Errorf("not started")
 	}
-
 	newFileLocation, err := getNewestRaidFile()
 	if err != nil {
 		return fmt.Errorf("getNewestRaidFile: %w", err)
@@ -160,6 +169,7 @@ func scanRaid() error {
 func scanLog() {
 	mu.Lock()
 	defer mu.Unlock()
+	fmt.Println("Log Scanner Booting Up...")
 	// Establish the log filepath
 	logFilePath, err := getLogDirectory()
 	if err != nil {
@@ -194,7 +204,9 @@ func scanLog() {
 			if err != nil {
 				fmt.Printf("scanLog: parseLootLine: %s", err)
 			}
-			fmt.Printf("%s has received %s from %s\n", charName, itemName, lootType)
+			lootMessage := charName + " has received " + itemName + " from " + lootType
+			fmt.Println(lootMessage)
+			discord.SendLootMessage(lootMessage)
 			for _, player := range players {
 				if player.Name == charName {
 					err = player.AddLoot(itemName)
@@ -206,6 +218,18 @@ func scanLog() {
 			}
 		}
 	}
+}
+
+func startBot() error {
+	err := config.ReadConfig()
+
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+
+	discord.Start()
+
+	return nil
 }
 
 func setStartTime() error {

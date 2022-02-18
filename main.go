@@ -18,9 +18,9 @@ var (
 func main() {
 	var err error
 	var count int //scanline arg return count
-	for {
-		var userInput string
+	var userInput string
 
+	for {
 		if !scanner.IsServerNameSet() {
 			fmt.Printf("Enter your server short name: ")
 			count, err = fmt.Scanln(&userInput)
@@ -37,6 +37,8 @@ func main() {
 				fmt.Println("invalid server name:", err)
 				continue
 			}
+		} else {
+			fmt.Println("Server name is already set...skipping")
 		}
 
 		if !scanner.IsCharacterNameSet() {
@@ -55,6 +57,8 @@ func main() {
 				fmt.Println("invalid character name:", err)
 				continue
 			}
+		} else {
+			fmt.Println("Character name is already set...skipping")
 		}
 
 		fmt.Printf("Commands:\nStart scanning raid file: 'start' or 'run'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
@@ -65,15 +69,10 @@ func main() {
 		if err != nil {
 			if !(err.Error() == "unexpected newline") { // Filter out this specific known error condition that is not of concern
 				fmt.Printf("command error: %s %s %s: %s\n", userInput, subCommand, value, err)
-				continue
 			}
 		}
 		//write a for loop to handle multiple commands
-		err = getUserInput(userInput, subCommand, value)
-		if err != nil {
-			fmt.Printf("failed command: %s %s %s: %s\n", userInput, subCommand, value, err)
-			continue
-		}
+		go getUserInput(userInput, subCommand, value)
 	}
 }
 
@@ -81,7 +80,7 @@ func startBot() error {
 	err := config.ReadConfig()
 
 	if err != nil {
-		return fmt.Errorf(err.Error())
+		return fmt.Errorf("startBot(): %s", err.Error())
 	}
 
 	go discord.Start()
@@ -89,7 +88,7 @@ func startBot() error {
 	return nil
 }
 
-func getUserInput(input, subcommand, value string) error {
+func getUserInput(input, subcommand, value string) {
 	mu.Lock()
 	defer mu.Unlock()
 	var err error
@@ -97,9 +96,11 @@ func getUserInput(input, subcommand, value string) error {
 	// Primary Command Handler
 	switch input {
 	case "start":
-		err = scanner.Start()
-	case "run":
-		err = scanner.Start()
+		if scanner.IsRunning() {
+			fmt.Printf("getUserInput: scanner is already running")
+			return
+		}
+		scanner.Start()
 	case "stop":
 		scanner.Stop()
 	case "exit":
@@ -111,36 +112,36 @@ func getUserInput(input, subcommand, value string) error {
 			fmt.Println("Setting server name to:", value)
 			err = scanner.SetServerName(value)
 			if err != nil {
-				return fmt.Errorf("getUserInput: invalid server name: %s", err)
+				fmt.Printf("getUserInput: invalid server name: %s", err)
 			}
 		case "character":
 			fmt.Println("Setting character name to:", value)
 			err = scanner.SetCharacterName(value)
 			if err != nil {
-				return fmt.Errorf("getUserInput: invalid character name: %s->%s", value, err)
+				fmt.Printf("getUserInput: invalid character name: %s->%s", value, err)
 			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
 			// convert string to int
 			intValue, err := strconv.Atoi(value)
 			if err != nil {
-				return fmt.Errorf("getUserInput: invalid timer value: %s", err)
+				fmt.Printf("getUserInput: invalid timer value: %s", err)
 			}
 			scanner.SetRaidFrequency(intValue)
 		case "bot":
 			if value == "on" {
 				err = startBot()
 				if err != nil {
-					return fmt.Errorf("getUserInput: failed to start bot: %s", err)
+					fmt.Printf("getUserInput: failed to start bot: %s", err)
 				}
 				fmt.Println("Booting up bot...")
 			} else if value == "off" {
 				err = discord.Stop()
 				if err != nil {
-					return fmt.Errorf("getUserInput: failed to stop bot: %s", err)
+					fmt.Printf("getUserInput: failed to stop bot: %s", err)
 				}
 			} else {
-				return fmt.Errorf("getUserInput: invalid bot command: %s", value)
+				fmt.Printf("getUserInput: invalid bot command: %s", value)
 			}
 		}
 	case "get":
@@ -149,11 +150,15 @@ func getUserInput(input, subcommand, value string) error {
 			serverName := scanner.GetServerName()
 			fmt.Println("Server Name:", serverName)
 		}
+	case "ping":
+		fmt.Println("Pong")
 	case "quit":
 		fmt.Println("[Status] Exiting...")
 		os.Exit(0)
 	default:
-		return fmt.Errorf("invalid command")
+		fmt.Println("invalid command")
 	}
-	return err
+	if err != nil {
+		fmt.Printf("failed command: %s %s %s: %s\n", input, subcommand, value, err)
+	}
 }
