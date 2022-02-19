@@ -7,9 +7,14 @@ import (
 	"github.com/Valorith/EQRaidAssist/discordwh"
 )
 
-func SendLootMessage(m string) {
+func SendMessage(m string, messageType int) {
 	var err error
-	discordwh.WebhookURL, err = config.GetWebHookUrl()
+	if messageType == 1 { // Loot Channel
+		discordwh.WebhookURL, err = config.GetLootWebHookUrl()
+	} else if messageType == 2 { // Attendance Channel
+		discordwh.WebhookURL, err = config.GetAtendWebHookUrl()
+	}
+
 	if err != nil {
 		fmt.Println("discord: failed to get webhook url:", err)
 		return

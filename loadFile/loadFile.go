@@ -3,6 +3,7 @@ package loadFile
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -33,6 +34,7 @@ func Load(fileName string) ([]string, error) {
 	return fileLines, nil
 }
 
+// Get the size of the file at the provided path
 func GetFileSize(fileName string) (int64, error) {
 	// Open the file
 	file, err := os.Open(fileName)
@@ -50,6 +52,7 @@ func GetFileSize(fileName string) (int64, error) {
 	return fileInfo.Size(), nil
 }
 
+// Get the date/time when the file was last written to
 func GetFileLastWrite(fileName string) (time.Time, error) {
 	// Open the file
 	file, err := os.Open(fileName)
@@ -66,4 +69,41 @@ func GetFileLastWrite(fileName string) (time.Time, error) {
 
 	return fileInfo.ModTime(), nil
 
+}
+
+// Moves the file from the sourcePath to the destPath
+func MoveFile(sourcePath, destPath string) error {
+	inputFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("MoveFile(): couldn't open source file: %s", err)
+	}
+	outputFile, err := os.Create(destPath)
+	if err != nil {
+		inputFile.Close()
+		return fmt.Errorf("MoveFile(): couldn't open dest file: %s", err)
+	}
+	defer outputFile.Close()
+	_, err = io.Copy(outputFile, inputFile)
+	inputFile.Close()
+	if err != nil {
+		return fmt.Errorf("MoveFile(): writing to output file failed: %s", err)
+	}
+	// The copy was successful, so now delete the original file
+	err = os.Remove(sourcePath)
+	if err != nil {
+		return fmt.Errorf("MoveFile(): failed removing original file: %s", err)
+	}
+	return nil
+}
+
+// Returns true if the file at the provided filePath exists
+func FileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

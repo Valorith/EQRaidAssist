@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -88,14 +89,20 @@ func Start() {
 		fmt.Println("scanner.Start(): scanner is already started")
 		return
 	}
+
+	// Organize Raid Dump Files into subfolder
+	OrganizeRaidDumps()
+
 	isStarted = true
 	err = setStartTime()
 	if err != nil {
 		fmt.Printf("scanner.Start(): setStartTime: %s", err)
 	}
-	raidFrequency = 1 * time.Minute
+	raidFrequency = 30 * time.Second
 	raidFrequencyChan = make(chan int)
 	stopSignalChan = make(chan bool)
+
+	loadSettings() // Load settings from config file
 
 	//Load Players in
 	err = scanRaid()
@@ -105,7 +112,7 @@ func Start() {
 
 	go loop()    // Loop through the scanner loop to detect new raid dump files
 	go scanLog() // Start scanning character log for loot data
-	startBot()   // Start the discord bot
+	fmt.Println("Listening...")
 }
 
 // Stop stops the scanner
@@ -147,21 +154,32 @@ func scanRaid() error {
 		return fmt.Errorf("not started")
 	}
 
-	if raid.Active { // Start a check-in
+	// Organize Raid Dump Files into subfolder
+	OrganizeRaidDumps()
 
-	} else { // Start the raid
-		raid.Start()
-	}
-
-	newFileLocation, err := getNewestRaidFile()
+	newFileLocation, fileLastModified, err := getNewestRaidFile()
 	if err != nil {
-		return fmt.Errorf("getNewestRaidFile: %w", err)
+		return fmt.Errorf("scanRaid: getNewestRaidFile: %w", err)
 	}
 
+	//fmt.Printf("File last Modified: %s -> %s\n", newFileLocation, fileLastModified)
+
+	// Check if file was already loaded
 	if loadedRaidFile == newFileLocation {
 		//fmt.Println("Already operating on the newest Raid Dump...")
 		return nil
 	}
+
+	// Ensure the newest file was created after the scanner started
+	fileRecent, err := checkFileRecent(fileLastModified)
+	if err != nil {
+		return fmt.Errorf("scanRaid: checkFileRecent: %w", err)
+	}
+	if !fileRecent {
+		//fmt.Printf("scanRaid: %s is not recent enough to load...\n", newFileLocation)
+		return nil
+	}
+
 	loadedRaidFile = newFileLocation
 	fmt.Println("Newest Raid Dump File Detected: ", loadedRaidFile)
 	dumpLines, err := loadFile.Load(loadedRaidFile)
@@ -169,15 +187,35 @@ func scanRaid() error {
 		return fmt.Errorf("loadFile.Load %s: %w", loadedRaidFile, err)
 	}
 
+	//Clear active players cache
+	core.ClearPlayers()
+
 	for _, line := range dumpLines {
 		p, err := player.NewFromLine(line)
 		if err != nil {
 			return fmt.Errorf("player.NewFromLine failed (%s): %w", line, err)
 		}
+		// Add the player to the players cache
 		core.AddPlayer(p)
+		// Add the player to the raid if needed
+		if !raid.PlayerIsInRaid(*p) {
+			raid.AddPlayersToRaid()
+		}
 	}
-
+	// Display loaded character cache
 	fmt.Printf("%+v\n", core.Players)
+
+	//Ensure all players are added to the active raid
+	if raid.Active { // Start a check-in
+		raid.AddPlayersToRaid()
+		err = raid.ActiveRaid.CheckIn()
+		if err != nil {
+			return fmt.Errorf("raid.ActiveRaid.CheckIn: %w", err)
+		}
+	} else { // Start the raid
+		raid.Start()
+		raid.AddPlayersToRaid()
+	}
 	return nil
 }
 
@@ -227,7 +265,7 @@ func scanLog() {
 			fmt.Println(lootMessage)
 
 			// Send discord message via WebHook
-			discord.SendLootMessage(lootMessage)
+			discord.SendMessage(lootMessage, 1)
 
 			// Assign loot to specific player
 			for _, player := range core.Players {
@@ -243,7 +281,7 @@ func scanLog() {
 	}
 }
 
-func startBot() error {
+func loadSettings() error {
 	err := config.ReadConfig()
 
 	if err != nil {
@@ -320,6 +358,7 @@ func convertMonthToInt(monthString string) (int, error) {
 	return currentMonthInt, nil
 }
 
+// Detirmines if the line was created after the scanner started
 func checkRecent(line string) (bool, error) {
 	if !(len(startTime) == 6) {
 		return false, fmt.Errorf("checkRecent: startTime is not set. length=%d", len(startTime))
@@ -329,18 +368,6 @@ func checkRecent(line string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("lineIsRecent: parseDateTime: %w", err)
 	}
-
-	// Debug Printout
-	/*
-		_, err = fmt.Printf("Line Date/Time: %d/%d/%d %d:%d:%d\n", lineMonth, lineDay, lineYear, lineHour, lineMinute, lineSecond)
-		if err != nil {
-			return false, fmt.Errorf("checkRecent: fmt.Println: %w", err)
-		}
-		_, err = fmt.Printf("Start Date/Time: %d/%d/%d %d:%d:%d\n", startMonth, startDay, startYear, startHour, startMinute, startSecond)
-		if err != nil {
-			return false, fmt.Errorf("checkRecent: fmt.Println: %w", err)
-		}
-	*/
 
 	//Check if startTime is after the lineTime
 	if startYear > lineYear {
@@ -364,6 +391,72 @@ func checkRecent(line string) (bool, error) {
 	return true, nil
 }
 
+// Detirmines if the file was created after the scanner started
+func checkFileRecent(fileTime string) (bool, error) {
+
+	startYear, startMonth, startDay, startHour, startMinute, startSecond := startTime[0], startTime[1], startTime[2], startTime[3], startTime[4], startTime[5]
+	fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond, err := parseFileDateTime(fileTime)
+	if err != nil {
+		return false, fmt.Errorf("lineIsRecent: parseDateTime: %w", err)
+	}
+
+	//Check if startTime is after the lineTime
+	if startYear > fileYear {
+		return false, nil
+	}
+	if startYear == fileYear && startMonth > fileMonth {
+		return false, nil
+	}
+	if startYear == fileYear && startMonth == fileMonth && startDay > fileDay {
+		return false, nil
+	}
+	if startYear == fileYear && startMonth == fileMonth && startDay == fileDay && startHour > fileHour {
+		return false, nil
+	}
+	if startYear == fileYear && startMonth == fileMonth && startDay == fileDay && startHour == fileHour && startMinute > fileMinute {
+		return false, nil
+	}
+	if startYear == fileYear && startMonth == fileMonth && startDay == fileDay && startHour == fileHour && startMinute == fileMinute && startSecond > fileSecond {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Returns whether fileTime (first argument) is newer than oldFileTime (second argument)
+func fileIsNewer(oldFileTime string, fileTime string) (bool, error) {
+
+	oldYear, oldMonth, oldDay, oldHour, oldMinute, oldSecond, err := parseFileDateTime(oldFileTime)
+	if err != nil {
+		return false, fmt.Errorf("fileIsNewer: parseDateTime1: %w", err)
+	}
+	fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond, err := parseFileDateTime(fileTime)
+	if err != nil {
+		return false, fmt.Errorf("fileIsNewer: parseDateTime2: %w", err)
+	}
+
+	//Check if startTime is after the lineTime
+	if oldYear > fileYear {
+		return false, nil
+	}
+	if oldYear == fileYear && oldMonth > fileMonth {
+		return false, nil
+	}
+	if oldYear == fileYear && oldMonth == fileMonth && oldDay > fileDay {
+		return false, nil
+	}
+	if oldYear == fileYear && oldMonth == fileMonth && oldDay == fileDay && oldHour > fileHour {
+		return false, nil
+	}
+	if oldYear == fileYear && oldMonth == fileMonth && oldDay == fileDay && oldHour == fileHour && oldMinute > fileMinute {
+		return false, nil
+	}
+	if oldYear == fileYear && oldMonth == fileMonth && oldDay == fileDay && oldHour == fileHour && oldMinute == fileMinute && oldSecond > fileSecond {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Returns the deconstructed date and time values for the provided log dateTime string
 func parseDateTime(line string) (int, int, int, int, int, int, error) {
 	dateElements := strings.Split(line, " ")
 	monthString := dateElements[1]
@@ -396,6 +489,54 @@ func parseDateTime(line string) (int, int, int, int, int, int, error) {
 	if err != nil {
 		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: convertMonthToInt: %w", err)
 	}
+	return year, month, day, hour, minute, second, nil
+}
+
+// Returns the deconstructed date and time values for the provided file dateTime string
+func parseFileDateTime(dateTime string) (int, int, int, int, int, int, error) {
+	if dateTime == "" {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseFileDateTime: dateTime is empty")
+	}
+	dateString := dateTime[:strings.Index(dateTime, " ")]
+	timeString := dateTime[strings.Index(dateTime, " ")+1 : strings.Index(dateTime, ".")]
+
+	//fmt.Printf("DateTime: %s\n", dateTime)
+	//fmt.Printf("dateString: %s\n", dateString)
+	//fmt.Printf("timeString: %s\n", timeString)
+	// Get Date
+	yearString := dateString[:strings.Index(dateString, "-")]
+	dateString = dateString[strings.Index(dateString, "-")+1:]
+	monthString := dateString[:strings.Index(dateString, "-")]
+	dateString = dateString[strings.Index(dateString, "-")+1:]
+	dayString := dateString
+
+	// Convert to int
+	day, err := strconv.Atoi(dayString)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
+	}
+	month, err := strconv.Atoi(monthString)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: convertMonthToInt: %w", err)
+	}
+	year, err := strconv.Atoi(yearString)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
+	}
+
+	hour, err := strconv.Atoi(timeString[:strings.Index(timeString, ":")])
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
+	}
+	minute, err := strconv.Atoi(timeString[strings.Index(timeString, ":")+1 : strings.LastIndex(timeString, ":")])
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
+	}
+	second, err := strconv.Atoi(timeString[strings.LastIndex(timeString, ":")+1:])
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("parseDateTime: strconv.Atoi: %w", err)
+	}
+
 	return year, month, day, hour, minute, second, nil
 }
 
@@ -461,44 +602,133 @@ func getLogDirectory() (string, error) {
 	return loadedLogFile, nil
 }
 
-func getNewestRaidFile() (string, error) {
+// Return the directory to the newest detected Raid Dump file
+func getNewestRaidFile() (string, string, error) {
+	// Get Root EQ Directory
 	EQpath, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
-		return "", fmt.Errorf("getwd: %w", err)
+		return "", "", fmt.Errorf("getwd: %w", err)
 	}
-	//logsFolder := EQpath + "\\Logs"
-	//fmt.Println("Loading Players from: ", EQpath)
-	raidDumpFileList := []string{}
-	fileListIndex := 0
-	filePathError := filepath.Walk(EQpath, func(path string, info os.FileInfo, err error) error {
+
+	// Get the directory of the RaidLogs folder
+	raidLogsFolder := EQpath + "\\RaidLogs"
+
+	// Load a list of all Raid dump files
+	raidDumpFileList, err := getRaidDumpFiles(raidLogsFolder)
+	if err != nil {
+		return "", "", fmt.Errorf("getNewestRaidFile(): %w", err)
+	}
+
+	// Detirmine which file in raidDumpFileList is the newest
+	newestIndex := 0
+	newestModified := ""
+	newestPath := ""
+	for index, raidFilePath := range raidDumpFileList {
+		oldFileModDate, err := getFileModDate(raidDumpFileList[newestIndex])
 		if err != nil {
-			return fmt.Errorf("filepath.Walk: %w", err)
+			return "", "", fmt.Errorf("getFileModDate: %w", err)
 		}
-		//fmt.Printf("Scanning File: %s....\n", path)
-		isDir := info.IsDir()
-		itemPath := path
-		if !isDir {
-			if strings.Contains(itemPath, "RaidRoster") {
-				raidDumpFileList = append(raidDumpFileList, itemPath)
-				fileListIndex++
-			}
+		newFileModDate, err := getFileModDate(raidFilePath)
+		if err != nil {
+			return "", "", fmt.Errorf("getFileModDate: %w", err)
 		}
-		return nil
-	})
-
-	if filePathError != nil {
-		fmt.Println(filePathError)
-		return "", fmt.Errorf("filepath.Walk: %w", filePathError)
+		fileNewer, err := fileIsNewer(oldFileModDate, newFileModDate)
+		if err != nil {
+			return "", "", fmt.Errorf("getNewestRaidFile(): fileIsNewer: %w", err)
+		}
+		if fileNewer {
+			newestIndex = index
+			newestModified = newFileModDate
+			newestPath = raidLogsFolder + "\\" + raidDumpFileList[index]
+		}
 	}
-
-	newestIndex := len(raidDumpFileList) - 1
 	if newestIndex < 0 {
-		return "", fmt.Errorf("empty result")
+		return "", "", fmt.Errorf("empty result")
 	}
-	return raidDumpFileList[newestIndex], nil
+
+	return newestPath, newestModified, nil
+}
+
+func getRaidDumpFiles(basePath string) ([]string, error) {
+
+	// Step through files and look for Raid Dump files
+	raidDumpFileList := []string{}
+	raidDumpFileInfo, err := ioutil.ReadDir(basePath)
+	if err != nil {
+		return nil, fmt.Errorf("getRaidDumpFiles: %w", err)
+	}
+
+	// Add files to the file list
+	for _, file := range raidDumpFileInfo {
+		if strings.Contains(file.Name(), "RaidRoster") {
+			fileName := file.Name()
+			//fmt.Printf("Found Raid Dump file: %s...\n", fileName)
+			raidDumpFileList = append(raidDumpFileList, fileName)
+		}
+	}
+
+	//fmt.Printf("Returning a fileList with %d files from inside (%s)...\n", len(raidDumpFileList), basePath)
+	return raidDumpFileList, nil
+}
+
+func getFileModDate(raidFilePath string) (string, error) {
+	// Get the directory of the current executable
+	EQpath, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("getFileModDate(): os.getwd: %w", err)
+	}
+	// Get the directory of the RaidLogs folder
+	raidLogsFolder := EQpath + "\\RaidLogs"
+
+	fileStat, err := os.Stat(raidLogsFolder + "\\" + raidFilePath)
+	if err != nil {
+		return "", fmt.Errorf("getFileModDate(%s): os.Stat: %w", raidFilePath, err)
+	}
+	fileModified := fileStat.ModTime().String()
+	return fileModified, nil
 }
 
 func SetRaidFrequency(value int) {
 	raidFrequencyChan <- value
+}
+
+// Organize raid dump files into a RaidLogs subfolder
+func OrganizeRaidDumps() error {
+	//fmt.Println("Starting file organization...")
+	// Get the directory of the current executable
+	EQpath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): os.getwd: %w", err)
+	}
+	raidLogsFolder := EQpath + "\\RaidLogs"
+	raidLogsFolderExists, err := loadFile.FileExists(raidLogsFolder)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): loadFile.FileExists: %w", err)
+	}
+	// Ensure that the RaidLog folder exists
+	if !raidLogsFolderExists {
+		os.Mkdir(raidLogsFolder, 0777)
+		fmt.Printf("Raid Log folder does not exist. Creating: %s\n", raidLogsFolder)
+	}
+
+	// Get the list of raid dump files
+	raidDumpFileList, err := getRaidDumpFiles(EQpath)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): getRaidDumpFiles: %w", err)
+	}
+	//fmt.Printf("%d logs found that need to be moved...\n", len(raidDumpFileList))
+	// Loop through the raid dump files
+	for _, raidFilePath := range raidDumpFileList {
+		// Get the file name from the path
+		raidFileName := filepath.Base(raidFilePath)
+		// Move the file to the RaidLogs folder
+		newFilePath := raidLogsFolder + "\\" + raidFileName
+		err := loadFile.MoveFile(raidFilePath, newFilePath)
+		if err != nil {
+			return fmt.Errorf("organizeRaidDumps(): copyFile: %w", err)
+		}
+		fmt.Printf("Moving file: %s ---> %s\n", raidFilePath, newFilePath)
+	}
+	return nil
 }

@@ -12,20 +12,22 @@ import (
 
 var (
 	// Public variables
-	Token       string
-	BotPrefix   string
-	LootChannel string
-	WebHookUrl  string
+	Token            string
+	BotPrefix        string
+	LootChannel      string
+	LootWebHookUrl   string
+	AttendWebHookUrl string
 	// Private variables
 	config *configStruct
 	mu     sync.RWMutex
 )
 
 type configStruct struct {
-	Token       string `json:"Token"`
-	BotPrefix   string `json:"BotPrefix"`
-	LootChannel string `json:"LootChannel"`
-	WebHookUrl  string `json:"WebHookUrl"`
+	Token            string `json:"Token"`
+	BotPrefix        string `json:"BotPrefix"`
+	LootChannel      string `json:"LootChannel"`
+	LootWebHookUrl   string `json:"LootWebHookUrl"`
+	AttendWebHookUrl string `json:"AttendWebHookUrl"`
 }
 
 func GetBotToken() (string, error) {
@@ -41,7 +43,7 @@ func SetBotToken(token string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	if token == "" {
-		return fmt.Errorf("SetWebHookUrl(): provided token is invalid")
+		return fmt.Errorf("SetBotToken(): provided token is invalid")
 	}
 	config.Token = token
 	Token = token
@@ -65,7 +67,7 @@ func SetBotPrefix(prefix string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	if prefix == "" {
-		return fmt.Errorf("SetWebHookUrl(): provided prefix is invalid")
+		return fmt.Errorf("SetBotPrefix(): provided prefix is invalid")
 	}
 	config.BotPrefix = prefix
 	BotPrefix = prefix
@@ -89,7 +91,7 @@ func SetLootChannel(channelID string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	if channelID == "" {
-		return fmt.Errorf("SetWebHookUrl(): provided channel id is invalid")
+		return fmt.Errorf("SetLootChannel(): provided channel id is invalid")
 	}
 	config.LootChannel = channelID
 	LootChannel = channelID
@@ -100,26 +102,50 @@ func SetLootChannel(channelID string) error {
 	return nil
 }
 
-func GetWebHookUrl() (string, error) {
+func GetLootWebHookUrl() (string, error) {
 	mu.RLock()
 	defer mu.RUnlock()
-	if WebHookUrl == "" {
-		return "", fmt.Errorf("web hook url not set")
+	if LootWebHookUrl == "" {
+		return "", fmt.Errorf("loot web hook url not set")
 	}
-	return WebHookUrl, nil
+	return LootWebHookUrl, nil
 }
 
-func SetWebHookUrl(url string) error {
+func GetAtendWebHookUrl() (string, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if AttendWebHookUrl == "" {
+		return "", fmt.Errorf("attendance web hook url not set")
+	}
+	return AttendWebHookUrl, nil
+}
+
+func SetLootWebHookUrl(url string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 	if url == "" {
-		return fmt.Errorf("SetWebHookUrl(): provided url is invalid")
+		return fmt.Errorf("SetLootWebHookUrl(): provided url is invalid")
 	}
-	config.WebHookUrl = url
-	WebHookUrl = url
+	config.LootWebHookUrl = url
+	LootWebHookUrl = url
 	err := SaveConfig()
 	if err != nil {
-		return fmt.Errorf("SetBotToken(): %w", err)
+		return fmt.Errorf("SetLootWebHookUrl(): %w", err)
+	}
+	return nil
+}
+
+func SetAttendWebHookUrl(url string) error {
+	mu.RLock()
+	defer mu.RUnlock()
+	if url == "" {
+		return fmt.Errorf("SetAttendWebHookUrl(): provided url is invalid")
+	}
+	config.AttendWebHookUrl = url
+	AttendWebHookUrl = url
+	err := SaveConfig()
+	if err != nil {
+		return fmt.Errorf("SetAttendWebHookUrl(): %w", err)
 	}
 	return nil
 }
@@ -192,7 +218,8 @@ func ReadConfig() error {
 	Token = config.Token
 	BotPrefix = config.BotPrefix
 	LootChannel = config.LootChannel
-	WebHookUrl = config.WebHookUrl
+	LootWebHookUrl = config.LootWebHookUrl
+	AttendWebHookUrl = config.AttendWebHookUrl
 
 	if err == nil {
 		fmt.Println("Config load successful!")

@@ -186,9 +186,15 @@ func getUserInput(input, subcommand, value string) {
 			if err != nil {
 				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
-		case "webhook":
-			fmt.Println("Setting webhook url to:", value)
-			err = config.SetWebHookUrl(value)
+		case "lootwebhook":
+			fmt.Println("Setting loot webhook url to:", value)
+			err = config.SetLootWebHookUrl(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
+			}
+		case "attendwebhook":
+			fmt.Println("Setting attendance webhook url to:", value)
+			err = config.SetAttendWebHookUrl(value)
 			if err != nil {
 				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
@@ -200,6 +206,15 @@ func getUserInput(input, subcommand, value string) {
 				fmt.Printf("getUserInput: invalid timer value: %s\n", err)
 			}
 			scanner.SetRaidFrequency(intValue)
+		case "raid":
+			if value == "checkin" {
+				err := raid.ActiveRaid.CheckIn()
+				if err != nil {
+					fmt.Printf("ActiveRaid.CheckIn(): %s\n", err)
+				}
+			} else {
+				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
+			}
 		}
 	case "get":
 		switch subcommand {
@@ -227,19 +242,30 @@ func getUserInput(input, subcommand, value string) {
 				fmt.Printf("GetLootChannel(): %s\n", err)
 			}
 			fmt.Println("Bot Loot Channel:", channel)
-		case "webhook":
-			webHookUrl, err := config.GetWebHookUrl()
+		case "lootwebhook":
+			webHookUrl, err := config.GetLootWebHookUrl()
 			if err != nil {
-				fmt.Printf("GetWebHookUrl(): %s\n", err)
+				fmt.Printf("GetLootWebHookUrl(): %s\n", err)
 			}
-			fmt.Println("Web Hook Url:", webHookUrl)
+			fmt.Println("Loot Web Hook Url:", webHookUrl)
+		case "attendwebhook":
+			webHookUrl, err := config.GetAtendWebHookUrl()
+			if err != nil {
+				fmt.Printf("GetAtendWebHookUrl(): %s\n", err)
+			}
+			fmt.Println("Attendance Web Hook Url:", webHookUrl)
 		case "timer":
 			timer := scanner.GetRaidTimer()
 			fmt.Println("Raid file scan timer:", timer)
 		case "raid":
-			err := raid.ActiveRaid.PrintParticipation()
-			if err != nil {
-				fmt.Printf("ActiveRaid.PrintParticipation(): %s\n", err)
+			switch value {
+			case "":
+				err := raid.ActiveRaid.PrintParticipation()
+				if err != nil {
+					fmt.Printf("ActiveRaid.PrintParticipation(): %s\n", err)
+				}
+			default:
+				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
 			}
 		case "ping":
 			fmt.Println("Pong")

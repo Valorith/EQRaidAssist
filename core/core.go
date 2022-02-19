@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/Valorith/EQRaidAssist/player"
 )
 
@@ -14,4 +16,9 @@ func GetActivePlayers() []*player.Player {
 
 func AddPlayer(p *player.Player) {
 	Players = append(Players, p)
+}
+
+func ClearPlayers() {
+	Players = nil
+	fmt.Println("Cached players cleared...")
 }
