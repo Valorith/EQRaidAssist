@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/raid"
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
 
@@ -21,6 +22,7 @@ func main() {
 	}
 
 	for {
+		// If the character name is not set, request it
 		if !scanner.IsCharacterNameSet() {
 			fmt.Printf("Enter the character name that you want to monitor (first name only): ")
 			count, err = fmt.Scanln(&userInput)
@@ -39,10 +41,12 @@ func main() {
 			}
 		}
 
+		// If the server name is not set, attempt to infer it
 		if !scanner.IsServerNameSet() {
 			inferServerName()
 		}
 
+		// If the server name is not set (infer failed), request it
 		if !scanner.IsServerNameSet() {
 			fmt.Printf("Enter your server short name: ")
 			count, err = fmt.Scanln(&userInput)
@@ -61,6 +65,7 @@ func main() {
 			}
 		}
 
+		// Print the available commands to the user
 		printCommands()
 		var subCommand, value string
 		_, err = fmt.Scanln(&userInput, &subCommand, &value)
@@ -69,11 +74,12 @@ func main() {
 				fmt.Printf("command error: %s %s %s: %s\n", userInput, subCommand, value, err)
 			}
 		}
-		//write a for loop to handle multiple commands
+		// Retrieve commands from user
 		go getUserInput(userInput, subCommand, value)
 	}
 }
 
+// Print the available commands to the user
 func printCommands() {
 	fmt.Printf("Commands:\nStart scanning raid file: 'start'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
 	fmt.Printf("Get app variables: 'get <identifier>'\nSet app variables: 'set <identifier>'\n")
@@ -81,6 +87,7 @@ func printCommands() {
 	fmt.Println("Enter a command:")
 }
 
+// Attempt to infer what the server name is based on the character name and client files
 func inferServerName() {
 	// Attempt to infer the server name based upon the provided char name
 	fmt.Println("Attempting to infer server name...")
@@ -229,6 +236,11 @@ func getUserInput(input, subcommand, value string) {
 		case "timer":
 			timer := scanner.GetRaidTimer()
 			fmt.Println("Raid file scan timer:", timer)
+		case "raid":
+			err := raid.ActiveRaid.PrintParticipation()
+			if err != nil {
+				fmt.Printf("ActiveRaid.PrintParticipation(): %s\n", err)
+			}
 		case "ping":
 			fmt.Println("Pong")
 		case "quit":

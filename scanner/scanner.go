@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/core"
 	"github.com/Valorith/EQRaidAssist/discord"
 	"github.com/Valorith/EQRaidAssist/loadFile"
 	"github.com/Valorith/EQRaidAssist/player"
+	"github.com/Valorith/EQRaidAssist/raid"
 	"github.com/hpcloud/tail"
 )
 
@@ -24,7 +26,6 @@ var (
 	raidFrequency     time.Duration // Frequency of the raid dump file scan
 	loadedLogFile     string        // Directory of the player's log file
 	raidFrequencyChan chan int
-	players           []*player.Player // Players detected within the raid dump file
 	stopSignalChan    chan bool
 	serverName        string // Server short name for reference in the log file directory
 	characterName     string // Character name for reference in the log file directory
@@ -145,6 +146,13 @@ func scanRaid() error {
 	if !isStarted {
 		return fmt.Errorf("not started")
 	}
+
+	if raid.Active { // Start a check-in
+
+	} else { // Start the raid
+		raid.Start()
+	}
+
 	newFileLocation, err := getNewestRaidFile()
 	if err != nil {
 		return fmt.Errorf("getNewestRaidFile: %w", err)
@@ -166,10 +174,10 @@ func scanRaid() error {
 		if err != nil {
 			return fmt.Errorf("player.NewFromLine failed (%s): %w", line, err)
 		}
-		players = append(players, p)
+		core.AddPlayer(p)
 	}
 
-	fmt.Printf("%+v\n", players)
+	fmt.Printf("%+v\n", core.Players)
 	return nil
 }
 
@@ -222,7 +230,7 @@ func scanLog() {
 			discord.SendLootMessage(lootMessage)
 
 			// Assign loot to specific player
-			for _, player := range players {
+			for _, player := range core.Players {
 				if player.Name == charName {
 					err = player.AddLoot(itemName)
 					if err != nil {
