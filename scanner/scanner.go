@@ -33,6 +33,19 @@ var (
 	startTime         []int  // Time the scanner was started
 )
 
+func ResetData() {
+	mu.Lock()
+	defer mu.Unlock()
+	isStarted = false
+	loadedRaidFile = ""
+	loadedLogFile = ""
+	raidFrequencyChan = nil
+	stopSignalChan = nil
+	serverName = ""
+	characterName = ""
+	startTime = nil
+}
+
 // Returns true if the file scanner is currently active
 func IsRunning() bool {
 	return isStarted
@@ -150,19 +163,19 @@ func loop() {
 }
 
 func scanRaid() error {
+	var raidCreated bool = false
 	if !isStarted {
-		return fmt.Errorf("not started")
+		return fmt.Errorf("scanRaid(): the raid scanner is not running")
 	}
 
 	// Organize Raid Dump Files into subfolder
 	OrganizeRaidDumps()
 
+	// Retrieve the latest raid dump file
 	newFileLocation, fileLastModified, err := getNewestRaidFile()
 	if err != nil {
 		return fmt.Errorf("scanRaid: getNewestRaidFile: %w", err)
 	}
-
-	//fmt.Printf("File last Modified: %s -> %s\n", newFileLocation, fileLastModified)
 
 	// Check if file was already loaded
 	if loadedRaidFile == newFileLocation {
@@ -176,10 +189,16 @@ func scanRaid() error {
 		return fmt.Errorf("scanRaid: checkFileRecent: %w", err)
 	}
 	if !fileRecent {
-		//fmt.Printf("scanRaid: %s is not recent enough to load...\n", newFileLocation)
 		return nil
 	}
 
+	// Check for new raid initiation
+	if loadedRaidFile == "" {
+		fmt.Printf("New Raid Initiated (%s)!\n", newFileLocation)
+		raidCreated = true
+	}
+
+	// Load the new raid dump file
 	loadedRaidFile = newFileLocation
 	fmt.Println("Newest Raid Dump File Detected: ", loadedRaidFile)
 	dumpLines, err := loadFile.Load(loadedRaidFile)
@@ -190,6 +209,7 @@ func scanRaid() error {
 	//Clear active players cache
 	core.ClearPlayers()
 
+	// Parse the new raid dump file
 	for _, line := range dumpLines {
 		p, err := player.NewFromLine(line)
 		if err != nil {
@@ -216,6 +236,24 @@ func scanRaid() error {
 		raid.Start()
 		raid.AddPlayersToRaid()
 	}
+
+	if raidCreated {
+		raidCreated = false
+		raidRoster := characterName + " has started a new raid!\n----------------\n"
+		for index, p := range core.Players {
+			raidRoster += fmt.Sprintf("%s) %s \n", fmt.Sprint(index+1), p.Name)
+		}
+		discord.SendEmbedMessage("New Raid Created!", raidRoster, 2)
+	} else {
+		raidRoster := characterName + " has initiated a raid checkin!\n----------------\n"
+		for index, p := range raid.ActiveRaid.Players {
+			name := p.Name
+			checkins := raid.ActiveRaid.GetCheckinsByName(name)
+			raidRoster += fmt.Sprintf("%s) %s: %d \n", fmt.Sprint(index+1), p.Name, checkins)
+		}
+		discord.SendEmbedMessage("Raid Checkin!", raidRoster, 2)
+	}
+
 	return nil
 }
 

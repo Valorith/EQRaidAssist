@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/Valorith/EQRaidAssist/loadFile"
 )
 
 var (
@@ -21,6 +23,17 @@ var (
 	config *configStruct
 	mu     sync.RWMutex
 )
+
+func ResetData() {
+	mu.Lock()
+	defer mu.Unlock()
+	Token = ""
+	BotPrefix = ""
+	LootChannel = ""
+	LootWebHookUrl = ""
+	AttendWebHookUrl = ""
+	config = nil
+}
 
 type configStruct struct {
 	Token            string `json:"Token"`
@@ -198,7 +211,13 @@ func sliceContains(s []string, str string) bool {
 
 func ReadConfig() error {
 	fmt.Println("Reading config file...")
-
+	created, err := checkConfigFile()
+	if err != nil {
+		return fmt.Errorf("checkConfigFile(): %w", err)
+	}
+	if created {
+		return nil
+	}
 	file, err := ioutil.ReadFile("./config.json")
 
 	if err != nil {
@@ -221,6 +240,12 @@ func ReadConfig() error {
 	LootWebHookUrl = config.LootWebHookUrl
 	AttendWebHookUrl = config.AttendWebHookUrl
 
+	// Organize Raid Dump Files into subfolder
+	err = OrganizeRaidDumps()
+	if err != nil {
+		return fmt.Errorf("ReadConfig(): OrganizeRaidDumps(): %w", err)
+	}
+
 	if err == nil {
 		fmt.Println("Config load successful!")
 	}
@@ -229,9 +254,23 @@ func ReadConfig() error {
 
 }
 
+func checkConfigFile() (bool, error) {
+	createdFile := false
+	// Check if the config.json file exists
+	if _, err := os.Stat("./config.json"); os.IsNotExist(err) {
+		fmt.Println("Config file not found, creating new one...")
+		err := SaveConfig()
+		if err != nil {
+			return false, fmt.Errorf("checkConfigFile(): SaveConfig(): %w", err)
+		}
+		createdFile = true
+	}
+	return createdFile, nil
+}
+
 func SaveConfig() error {
 	fmt.Println("Saving to config file...")
-
+	PrepareToSaveConfig()
 	file, err := json.MarshalIndent(config, "", " ")
 	if err != nil {
 		return fmt.Errorf("SaveConfig(): failed to marshal config: %w", err)
@@ -246,4 +285,92 @@ func SaveConfig() error {
 
 	return nil
 
+}
+
+func PrepareToSaveConfig() bool {
+	if config == nil {
+		tempConfig := configStruct{
+			Token:            "",
+			BotPrefix:        "",
+			LootChannel:      "",
+			LootWebHookUrl:   "",
+			AttendWebHookUrl: "",
+		}
+		config = &tempConfig
+	}
+	return false
+}
+
+// Organize raid dump files into a RaidLogs subfolder
+func OrganizeRaidDumps() error {
+	//fmt.Println("Starting file organization...")
+	// Get the directory of the current executable
+	EQpath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): os.getwd: %w", err)
+	}
+
+	// Ensure that the RaidLog folder exists
+	raidLogsFolder := EQpath + "\\RaidLogs"
+	raidLogsFolderExists, err := loadFile.FileExists(raidLogsFolder)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): loadFile.FileExists: %w", err)
+	}
+	if !raidLogsFolderExists {
+		os.Mkdir(raidLogsFolder, 0777)
+		fmt.Printf("Raid Log folder does not exist. Creating: %s\n", raidLogsFolder)
+	}
+
+	// Ensure that the SavedRaids folder exists
+	savedRaidsFolder := EQpath + "\\SavedRaids"
+	savedRaidsFolderExists, err := loadFile.FileExists(savedRaidsFolder)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): loadFile.FileExists: %w", err)
+	}
+	if !savedRaidsFolderExists {
+		os.Mkdir(savedRaidsFolder, 0777)
+		fmt.Printf("SavedRaids folder does not exist. Creating: %s\n", savedRaidsFolder)
+	}
+
+	// Get the list of raid dump files
+	raidDumpFileList, err := getRaidDumpFiles(EQpath)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): getRaidDumpFiles: %w", err)
+	}
+	//fmt.Printf("%d logs found that need to be moved...\n", len(raidDumpFileList))
+	// Loop through the raid dump files
+	for _, raidFilePath := range raidDumpFileList {
+		// Get the file name from the path
+		raidFileName := filepath.Base(raidFilePath)
+		// Move the file to the RaidLogs folder
+		newFilePath := raidLogsFolder + "\\" + raidFileName
+		err := loadFile.MoveFile(raidFilePath, newFilePath)
+		if err != nil {
+			return fmt.Errorf("organizeRaidDumps(): copyFile: %w", err)
+		}
+		fmt.Printf("Moving file: %s ---> %s\n", raidFilePath, newFilePath)
+	}
+	return nil
+}
+
+func getRaidDumpFiles(basePath string) ([]string, error) {
+
+	// Step through files and look for Raid Dump files
+	raidDumpFileList := []string{}
+	raidDumpFileInfo, err := ioutil.ReadDir(basePath)
+	if err != nil {
+		return nil, fmt.Errorf("getRaidDumpFiles: %w", err)
+	}
+
+	// Add files to the file list
+	for _, file := range raidDumpFileInfo {
+		if strings.Contains(file.Name(), "RaidRoster") {
+			fileName := file.Name()
+			//fmt.Printf("Found Raid Dump file: %s...\n", fileName)
+			raidDumpFileList = append(raidDumpFileList, fileName)
+		}
+	}
+
+	//fmt.Printf("Returning a fileList with %d files from inside (%s)...\n", len(raidDumpFileList), basePath)
+	return raidDumpFileList, nil
 }

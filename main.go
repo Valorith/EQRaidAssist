@@ -11,14 +11,19 @@ import (
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
 
+var (
+	commandsDisplayed bool = false
+)
+
 func main() {
+	defer close()
 	var err error
 	var count int //scanline arg return count
 	var userInput string
 
 	err = config.ReadConfig()
 	if err != nil {
-		fmt.Printf("main: failed to read config: %s", err)
+		fmt.Printf("main: failed to read config: %s\n", err)
 	}
 
 	for {
@@ -65,8 +70,11 @@ func main() {
 			}
 		}
 
-		// Print the available commands to the user
-		printCommands()
+		if !commandsDisplayed {
+			// Print the available commands to the user
+			printCommands()
+		}
+
 		var subCommand, value string
 		_, err = fmt.Scanln(&userInput, &subCommand, &value)
 		if err != nil {
@@ -81,7 +89,11 @@ func main() {
 
 // Print the available commands to the user
 func printCommands() {
+	commandsDisplayed = true
 	fmt.Printf("Commands:\nStart scanning raid file: 'start'\nStop scanning raid file: 'stop'\nExit application: 'exit' or 'quit'\n")
+	fmt.Printf("Load the most recent saved raid: 'get lastraid'\n")
+	fmt.Printf("Show current raid participants: 'get raid'\n")
+	fmt.Printf("Reset all session data: 'set reset'\n")
 	fmt.Printf("Get app variables: 'get <identifier>'\nSet app variables: 'set <identifier>'\n")
 	fmt.Println("-----------------")
 	fmt.Println("Enter a command:")
@@ -140,7 +152,7 @@ func inferServerName() {
 
 func getUserInput(input, subcommand, value string) {
 	var err error
-
+	fmt.Println("-----------------")
 	// Primary Command Handler
 	switch input {
 	case "start":
@@ -153,6 +165,7 @@ func getUserInput(input, subcommand, value string) {
 		scanner.Stop()
 	case "exit":
 		fmt.Println("[Status] Exiting...")
+		config.SaveConfig()
 		os.Exit(0)
 	case "set":
 		switch subcommand {
@@ -215,6 +228,18 @@ func getUserInput(input, subcommand, value string) {
 			} else {
 				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
 			}
+		case "reset":
+			/*
+				scanner.Stop()
+				core.ClearPlayers()
+				scanner.ResetData()
+				discordwh.ResetData()
+				raid.ResetData()
+				config.ResetData()
+			*/
+			fmt.Println("Reset Not yet implemented")
+		default:
+			fmt.Printf("invalid command(%s)\n", subcommand)
 		}
 	case "get":
 		switch subcommand {
@@ -272,16 +297,26 @@ func getUserInput(input, subcommand, value string) {
 			if err != nil {
 				fmt.Printf("ActiveRaid.Load(): %s\n", err)
 			}
-		case "ping":
-			fmt.Println("Pong")
+		case "commands":
+			printCommands()
 		case "quit":
 			fmt.Println("[Status] Exiting...")
+			config.SaveConfig()
 			os.Exit(0)
 		default:
-			fmt.Println("invalid command")
+			fmt.Printf("invalid command(%s)\n", subcommand)
 		}
+	case "ping":
+		fmt.Println("Pong")
+	default:
+		fmt.Printf("invalid command(%s)\n", input)
 	}
 	if err != nil {
 		fmt.Printf("failed command: %s %s %s: %s\n", input, subcommand, value, err)
 	}
+}
+
+func close() {
+	fmt.Println("Cleaning up before exit...")
+	config.SaveConfig()
 }

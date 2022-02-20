@@ -11,10 +11,20 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"sync"
 )
 
 // WebhookURL your discord webhook URL
-var WebhookURL string
+var (
+	mu         sync.Mutex
+	WebhookURL string
+)
+
+func ResetData() {
+	mu.Lock()
+	defer mu.Unlock()
+	WebhookURL = ""
+}
 
 // Say sends the provided message to the channel for which the webhook is configured.
 // If WebhookURL is not set, this does nothing.
