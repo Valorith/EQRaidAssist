@@ -98,7 +98,7 @@ func Start() {
 	if err != nil {
 		fmt.Printf("scanner.Start(): setStartTime: %s", err)
 	}
-	raidFrequency = 30 * time.Second
+	raidFrequency = 10 * time.Second
 	raidFrequencyChan = make(chan int)
 	stopSignalChan = make(chan bool)
 
@@ -701,15 +701,27 @@ func OrganizeRaidDumps() error {
 	if err != nil {
 		return fmt.Errorf("organizeRaidDumps(): os.getwd: %w", err)
 	}
+
+	// Ensure that the RaidLog folder exists
 	raidLogsFolder := EQpath + "\\RaidLogs"
 	raidLogsFolderExists, err := loadFile.FileExists(raidLogsFolder)
 	if err != nil {
 		return fmt.Errorf("organizeRaidDumps(): loadFile.FileExists: %w", err)
 	}
-	// Ensure that the RaidLog folder exists
 	if !raidLogsFolderExists {
 		os.Mkdir(raidLogsFolder, 0777)
 		fmt.Printf("Raid Log folder does not exist. Creating: %s\n", raidLogsFolder)
+	}
+
+	// Ensure that the SavedRaids folder exists
+	savedRaidsFolder := EQpath + "\\SavedRaids"
+	savedRaidsFolderExists, err := loadFile.FileExists(savedRaidsFolder)
+	if err != nil {
+		return fmt.Errorf("organizeRaidDumps(): loadFile.FileExists: %w", err)
+	}
+	if !savedRaidsFolderExists {
+		os.Mkdir(savedRaidsFolder, 0777)
+		fmt.Printf("SavedRaids folder does not exist. Creating: %s\n", savedRaidsFolder)
 	}
 
 	// Get the list of raid dump files

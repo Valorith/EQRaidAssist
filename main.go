@@ -267,6 +267,11 @@ func getUserInput(input, subcommand, value string) {
 			default:
 				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
 			}
+		case "lastraid":
+			err := raid.ActiveRaid.Load(value)
+			if err != nil {
+				fmt.Printf("ActiveRaid.Load(): %s\n", err)
+			}
 		case "ping":
 			fmt.Println("Pong")
 		case "quit":
