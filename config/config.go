@@ -19,6 +19,7 @@ var (
 	LootChannel      string
 	LootWebHookUrl   string
 	AttendWebHookUrl string
+	GuildName        string
 	// Private variables
 	config *configStruct
 	mu     sync.RWMutex
@@ -32,7 +33,9 @@ func ResetData() {
 	LootChannel = ""
 	LootWebHookUrl = ""
 	AttendWebHookUrl = ""
+	GuildName = ""
 	config = nil
+
 }
 
 type configStruct struct {
@@ -41,6 +44,7 @@ type configStruct struct {
 	LootChannel      string `json:"LootChannel"`
 	LootWebHookUrl   string `json:"LootWebHookUrl"`
 	AttendWebHookUrl string `json:"AttendWebHookUrl"`
+	GuildName        string `json:"GuildName"`
 }
 
 func GetBotToken() (string, error) {
@@ -91,6 +95,30 @@ func SetBotPrefix(prefix string) error {
 	return nil
 }
 
+func GetGuildName() (string, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if GuildName == "" {
+		return "", fmt.Errorf("guild name not set")
+	}
+	return GuildName, nil
+}
+
+func SetGuildName(guildName string) error {
+	mu.RLock()
+	defer mu.RUnlock()
+	if guildName == "" {
+		return fmt.Errorf("SetGuild(): provided guild name is invalid")
+	}
+	config.GuildName = guildName
+	GuildName = guildName
+	err := SaveConfig()
+	if err != nil {
+		return fmt.Errorf("SetGuild(): %w", err)
+	}
+	return nil
+}
+
 func GetLootChannel() (string, error) {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -110,7 +138,7 @@ func SetLootChannel(channelID string) error {
 	LootChannel = channelID
 	err := SaveConfig()
 	if err != nil {
-		return fmt.Errorf("SetBotToken(): %w", err)
+		return fmt.Errorf("SetLootChannel(): %w", err)
 	}
 	return nil
 }
@@ -237,6 +265,7 @@ func ReadConfig() error {
 	LootChannel = config.LootChannel
 	LootWebHookUrl = config.LootWebHookUrl
 	AttendWebHookUrl = config.AttendWebHookUrl
+	GuildName = config.GuildName
 
 	// Organize Raid Dump Files into subfolder
 	err = OrganizeRaidDumps()

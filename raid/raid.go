@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	mu         sync.Mutex
-	Active     bool
-	ActiveRaid Raid
+	mu          sync.Mutex
+	Active      bool
+	ActiveRaid  Raid
+	DisplayList map[string]int = map[string]int{}
 )
 
 func ResetData() {
@@ -68,6 +69,18 @@ func Start() error {
 	//-----------------------
 	ActiveRaid.initializeCheckins()
 	ActiveRaid.Save()
+	return nil
+}
+
+// Create a func that displays all entries in the DisplayList map
+func PrintDisplayList() error {
+	if len(DisplayList) > 0 {
+		for character, checkins := range DisplayList {
+			fmt.Printf("%s: %d\n", character, checkins)
+		}
+	} else {
+		return fmt.Errorf("PrintDisplayList(): DisplayList is empty")
+	}
 	return nil
 }
 
@@ -333,16 +346,48 @@ func playerStillActive(name string) bool {
 func AddPlayersToRaid() error {
 	for _, player := range core.GetActivePlayers() {
 		if !PlayerIsInRaid(player.Name) {
-			handle := alias.TryToGetHandle(player.Name)
-			if PlayerIsInRaid(handle) {
-				return fmt.Errorf("player %s is already in the raid", handle)
-			}
-
 			fmt.Printf("Adding %s to raid...\n", player.Name)
 			ActiveRaid.Players = append(ActiveRaid.Players, player)
+		} else {
+			return fmt.Errorf("player %s is already in the raid", player.Name)
 		}
 	}
 	return nil
+}
+
+func PlayerIsInDisplayList(characterName string) bool {
+	// Check if the provided characterName is in the DisplayList map
+	_, ok := DisplayList[characterName]
+	return ok
+}
+
+// Updates the DisplayList map with current player information, enforcing alias
+func UpdateDisplayList() {
+	// Clear the DisplayList map
+	DisplayList = make(map[string]int)
+	// Iterate through the checkins map
+	for character := range ActiveRaid.Checkins {
+		handle := alias.TryToGetHandle(character)
+		// If the handle of the checkin character is not in the DisplayList map
+		if !PlayerIsInDisplayList(handle) {
+			// Add the handle of the checkin character to the DisplayList map
+			DisplayList[handle] = GetHighestCheckin(handle)
+		}
+	}
+}
+
+// Return the highest checkin associated with the handle specified
+func GetHighestCheckin(handle string) int {
+	highestCheckin := 0
+	for character, checkins := range ActiveRaid.Checkins {
+		// Check if the character is associated with the provided handler
+		if alias.TryToGetHandle(character) == handle {
+			if checkins > highestCheckin {
+				highestCheckin = checkins
+			}
+		}
+	}
+	return highestCheckin
 }
 
 // Detirmine if the provided character name is present in the active raid

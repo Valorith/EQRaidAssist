@@ -215,6 +215,18 @@ func getUserInput(input, subcommand, value string) {
 			if err != nil {
 				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
+		case "guild":
+			fmt.Println("Setting guild name to:", value)
+			err = config.SetGuildName(value)
+			if err != nil {
+				fmt.Printf("getUserInput: %s->%s\n", value, err)
+			}
+		case "guildalias":
+			fmt.Println("Importing the guild list from file and generating the alias list...")
+			err := alias.GenerageAliasListFromGuildList()
+			if err != nil {
+				fmt.Printf("GenerageAliasListFromGuildList(): %s\n", err)
+			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
 			// convert string to int
@@ -283,6 +295,18 @@ func getUserInput(input, subcommand, value string) {
 				fmt.Printf("GetAtendWebHookUrl(): %s\n", err)
 			}
 			fmt.Println("Attendance Web Hook Url:", webHookUrl)
+		case "guild":
+			guildName, err := config.GetGuildName()
+			if err != nil {
+				fmt.Printf("GetGuildName(): %s\n", err)
+			}
+			fmt.Println("Guild Name:", guildName)
+		case "guildalias":
+			err := alias.ReadGuildMembers()
+			if err != nil {
+				fmt.Printf("ReadGuildMembers(): %s\n", err)
+			}
+			fmt.Println("Guild aliases loaded...")
 		case "timer":
 			timer := scanner.GetRaidTimer()
 			fmt.Println("Raid file scan timer:", timer)
@@ -305,6 +329,16 @@ func getUserInput(input, subcommand, value string) {
 				}
 			default:
 				fmt.Printf("alias: invalid subcommand --> %s\n", subcommand)
+			}
+		case "displaylist":
+			switch value {
+			case "":
+				err := raid.PrintDisplayList()
+				if err != nil {
+					fmt.Printf("raid.PrintDisplayList(): %s\n", err)
+				}
+			default:
+				fmt.Printf("displaylist: invalid subcommand --> %s\n", subcommand)
 			}
 		case "lastraid":
 			err := raid.ActiveRaid.Load(value)

@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 
-	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/player"
 )
 
@@ -16,9 +15,8 @@ func GetActivePlayers() []*player.Player {
 }
 
 func AddPlayer(p *player.Player) error {
-	handle := alias.TryToGetHandle(p.Name)
-	if IsCachedPlayer(handle) {
-		return fmt.Errorf("player %s is already cached", handle)
+	if IsCachedPlayer(p.Name) {
+		return fmt.Errorf("player %s is already cached", p.Name)
 	}
 	Players = append(Players, p)
 	return nil

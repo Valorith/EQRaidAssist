@@ -243,17 +243,21 @@ func scanRaid() error {
 		// Send raid creation message to discord
 		raidCreated = false
 		raidRoster := alias.TryToGetHandle(characterName) + " has started a new raid!\n----------------\n"
-		for index, p := range core.Players {
-			raidRoster += fmt.Sprintf("%s) %s \n", fmt.Sprint(index+1), p.Name)
+		raid.UpdateDisplayList()
+		index := 1
+		for handle := range raid.DisplayList {
+			raidRoster += fmt.Sprintf("%s) %s \n", fmt.Sprint(index), handle)
+			index++
 		}
 		discord.SendEmbedMessage("New Raid Created!", raidRoster, 2)
 	} else {
 		// Send raid checkin update to discord
 		raidRoster := alias.TryToGetHandle(characterName) + " has initiated a raid checkin!\n----------------\n"
-		for index, p := range raid.ActiveRaid.Players {
-			name := p.Name
-			checkins := raid.ActiveRaid.GetCheckinsByName(name)
-			raidRoster += fmt.Sprintf("%s) %s: %d \n", fmt.Sprint(index+1), p.Name, checkins)
+		raid.UpdateDisplayList()
+		index := 1
+		for handle, checkins := range raid.DisplayList {
+			raidRoster += fmt.Sprintf("%s) %s: %d \n", fmt.Sprint(index), handle, checkins)
+			index++
 		}
 		discord.SendEmbedMessage("Raid Checkin!", raidRoster, 2)
 	}
@@ -295,7 +299,6 @@ func scanLog() {
 			}
 
 			charName, itemName, lootType, err := parseLootLine(lineText)
-			charName = alias.TryToGetHandle(charName)
 			if err != nil {
 				fmt.Printf("scanLog: parseLootLine: %s", err)
 			}

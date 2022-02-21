@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/Valorith/EQRaidAssist/config"
 )
 
 type Alias struct {
@@ -16,8 +21,26 @@ type Aliases struct {
 	List []Alias `json:"aliases"`
 }
 
+//Guild Member
+type GuildMember struct {
+	Name       string `json:"name"`        // Character Name
+	Level      int    `json:"level"`       // Character Level
+	Class      string `json:"class"`       // Character Class
+	Rank       string `json:"rank"`        // Character Guild Rank
+	Alt        bool   `json:"alt"`         // Alt flag
+	LastOn     string `json:"last"`        // Last date online
+	Zone       string `json:"zone"`        // Character Zone
+	PublicNote string `json:"public_note"` // Public Note
+}
+
+//List of Guild Members
+type GuildMembers struct {
+	List []GuildMember `json:"guild_members"`
+}
+
 var (
-	ActiveAliases Aliases
+	ActiveAliases      Aliases
+	ActiveGuildMembers GuildMembers
 )
 
 func (aliases Aliases) PrintAliases() error {
@@ -30,7 +53,7 @@ func (aliases Aliases) PrintAliases() error {
 	fmt.Println("Alias Count:", len(aliases.List))
 	for _, alias := range aliases.List {
 		//Ensure player is on the current player list
-		fmt.Printf("Handle(Alias):%s\n", alias.Handle)
+		fmt.Printf("Alias: %s\n", alias.Handle)
 		for index, character := range alias.Characters {
 			fmt.Printf("%d) %s\n", index+1, character)
 		}
@@ -173,6 +196,7 @@ func SaveAliases() error {
 
 }
 
+// Load in the alias list from a json file
 func ReadAliases() error {
 	fmt.Println("Reading alias file...")
 	created, err := checkAliasFile()
@@ -186,8 +210,6 @@ func ReadAliases() error {
 	if err != nil {
 		return fmt.Errorf("ReadAliases(): failed to read alias file: %w", err)
 	}
-
-	//fmt.Println(string(file))
 
 	err = json.Unmarshal(file, &ActiveAliases)
 	if err != nil {
@@ -212,4 +234,136 @@ func checkAliasFile() (bool, error) {
 		createdFile = true
 	}
 	return createdFile, nil
+}
+
+// Get a list of all files inside EQpath that contain the string config.GuildName
+func GetGuildFiles() ([]string, error) {
+	EQpath, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("GetGuildFiles(): os.Getwd(): %w", err)
+	}
+	files, err := ioutil.ReadDir(EQpath)
+	if err != nil {
+		return nil, fmt.Errorf("GetGuildFiles(): failed to read EQDir: %w", err)
+	}
+	var guildFiles []string
+	for _, f := range files {
+		if strings.Contains(f.Name(), config.GuildName) {
+			guildFiles = append(guildFiles, f.Name())
+		}
+	}
+	return guildFiles, nil
+}
+
+// Return the most recently modified file out of a provided list of files inside EQpath
+func getMostRecentFile() (string, error) {
+	var mostRecent string
+	var mostRecentTime time.Time
+	files, err := GetGuildFiles()
+	if err != nil {
+		return "", fmt.Errorf("getMostRecentFile(): GetGuildFiles(): %w", err)
+	}
+	if len(files) == 0 {
+		return "", fmt.Errorf("getMostRecentFile(): no files found")
+	}
+	for _, f := range files {
+		fileInfo, err := os.Stat(f)
+		if err != nil {
+			return "", fmt.Errorf("GetMostRecentFile(): os.Stat(): %w", err)
+		}
+		if fileInfo.ModTime().After(mostRecentTime) {
+			mostRecent = f
+			mostRecentTime = fileInfo.ModTime()
+		}
+	}
+	return mostRecent, nil
+}
+
+// Load in the alias list from a json file
+func ReadGuildMembers() error {
+	fmt.Println("Reading guild file...")
+
+	// Clear the Active Guild List
+	ActiveGuildMembers.List = []GuildMember{}
+
+	// Get the directory to the most current guild file
+	guildFile, err := getMostRecentFile()
+	if err != nil {
+		return fmt.Errorf("ReadGuildMembers(): getMostRecentFile(): %w", err)
+	}
+
+	// Newest guild file located
+	fmt.Printf("Located guild file: %s\n", guildFile)
+
+	// Load the guild file
+	file, err := ioutil.ReadFile(guildFile)
+	if err != nil {
+		return fmt.Errorf("ReadGuildMembers(): failed to read guild file: %w", err)
+	}
+
+	// Guild file loaded
+	fmt.Println("Guild file loaded...")
+
+	// Iterate through the text file (file) and parse the guild members
+	lines := strings.Split(string(file), "\n")
+	for _, line := range lines {
+		if len(line) > 0 {
+			elements := strings.Split(line, "\t")
+			memberLevel, err := strconv.Atoi(elements[1])
+			if err != nil {
+				return fmt.Errorf("ReadGuildMembers(): failed to convert string to int: %w", err)
+			}
+			memberAlt := false
+			if elements[4] == "" {
+				memberAlt = false
+			} else {
+				memberAlt = true
+			}
+			// Create a new guild member
+			guildMember := GuildMember{
+				Name:       elements[0],
+				Level:      memberLevel,
+				Class:      elements[2],
+				Rank:       elements[3],
+				Alt:        memberAlt,
+				LastOn:     elements[5],
+				Zone:       elements[6],
+				PublicNote: elements[7]}
+
+			// Add guildMember to the Active Guild List
+			ActiveGuildMembers.List = append(ActiveGuildMembers.List, guildMember)
+
+			// Guild Member imported
+			fmt.Printf("Imported guild member: %s...\n", guildMember.Name)
+		}
+	}
+
+	if err == nil {
+		fmt.Println("Guild load successful!")
+	}
+	return nil
+}
+
+// Generage a new alias list from the loaded Guild List
+func GenerageAliasListFromGuildList() error {
+	// Flushing active alias list
+	fmt.Println("Flushing active alias list...")
+	ActiveAliases.List = []Alias{}
+
+	// Read in guild members
+	err := ReadGuildMembers()
+	if err != nil {
+		return fmt.Errorf("GenerageAliasListFromGuildList(): ReadGuildMembers(): %w", err)
+	}
+
+	for _, guildMember := range ActiveGuildMembers.List {
+		charName := guildMember.Name
+		charHandle := guildMember.PublicNote
+
+		err := AddAlias(charName, charHandle)
+		if err != nil {
+			return fmt.Errorf("GenerageAliasListFromGuildList(): AddAlias(): %w", err)
+		}
+	}
+	return nil
 }
