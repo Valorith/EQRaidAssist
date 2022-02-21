@@ -219,10 +219,8 @@ func ReadConfig() error {
 		return nil
 	}
 	file, err := ioutil.ReadFile("./config.json")
-
 	if err != nil {
-		fmt.Println(err.Error())
-		return err
+		return fmt.Errorf("ReadConfig(): ioutil.ReadFile(): %w", err)
 	}
 
 	//fmt.Println(string(file))

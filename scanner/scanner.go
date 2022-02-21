@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/config"
 	"github.com/Valorith/EQRaidAssist/core"
 	"github.com/Valorith/EQRaidAssist/discord"
@@ -218,7 +219,7 @@ func scanRaid() error {
 		// Add the player to the players cache
 		core.AddPlayer(p)
 		// Add the player to the raid if needed
-		if !raid.PlayerIsInRaid(*p) {
+		if !raid.PlayerIsInRaid(p.Name) {
 			raid.AddPlayersToRaid()
 		}
 	}
@@ -237,15 +238,18 @@ func scanRaid() error {
 		raid.AddPlayersToRaid()
 	}
 
+	// Handle discord updates
 	if raidCreated {
+		// Send raid creation message to discord
 		raidCreated = false
-		raidRoster := characterName + " has started a new raid!\n----------------\n"
+		raidRoster := alias.TryToGetHandle(characterName) + " has started a new raid!\n----------------\n"
 		for index, p := range core.Players {
 			raidRoster += fmt.Sprintf("%s) %s \n", fmt.Sprint(index+1), p.Name)
 		}
 		discord.SendEmbedMessage("New Raid Created!", raidRoster, 2)
 	} else {
-		raidRoster := characterName + " has initiated a raid checkin!\n----------------\n"
+		// Send raid checkin update to discord
+		raidRoster := alias.TryToGetHandle(characterName) + " has initiated a raid checkin!\n----------------\n"
 		for index, p := range raid.ActiveRaid.Players {
 			name := p.Name
 			checkins := raid.ActiveRaid.GetCheckinsByName(name)
@@ -291,6 +295,7 @@ func scanLog() {
 			}
 
 			charName, itemName, lootType, err := parseLootLine(lineText)
+			charName = alias.TryToGetHandle(charName)
 			if err != nil {
 				fmt.Printf("scanLog: parseLootLine: %s", err)
 			}

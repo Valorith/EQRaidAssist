@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/Valorith/EQRaidAssist/alias"
 )
 
 // Represents an EverQuest player
@@ -36,6 +38,8 @@ func NewFromLine(line string) (*Player, error) {
 	}
 	formattedLine = formattedLine[strings.Index(formattedLine, ",")+1:]
 	p.Class = formattedLine[0:strings.Index(formattedLine, ",")]
+	// If an alias exists for the character, swap it in
+	p.Name = alias.TryToGetHandle(p.Name)
 	return p, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/config"
 	"github.com/Valorith/EQRaidAssist/raid"
 	"github.com/Valorith/EQRaidAssist/scanner"
@@ -25,7 +26,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("main: failed to read config: %s\n", err)
 	}
-
+	err = alias.ReadAliases()
+	if err != nil {
+		fmt.Printf("main: failed to read aliases: %s\n", err)
+	}
 	for {
 		// If the character name is not set, request it
 		if !scanner.IsCharacterNameSet() {
@@ -290,7 +294,17 @@ func getUserInput(input, subcommand, value string) {
 					fmt.Printf("ActiveRaid.PrintParticipation(): %s\n", err)
 				}
 			default:
-				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
+				fmt.Printf("raid: invalid subcommand --> %s\n", subcommand)
+			}
+		case "alias":
+			switch value {
+			case "":
+				err := alias.ActiveAliases.PrintAliases()
+				if err != nil {
+					fmt.Printf("ActiveAliases.PrintAliases(): %s\n", err)
+				}
+			default:
+				fmt.Printf("alias: invalid subcommand --> %s\n", subcommand)
 			}
 		case "lastraid":
 			err := raid.ActiveRaid.Load(value)
@@ -305,6 +319,17 @@ func getUserInput(input, subcommand, value string) {
 			os.Exit(0)
 		default:
 			fmt.Printf("invalid command(%s)\n", subcommand)
+		}
+	case "alias":
+		characterName := subcommand
+		handle := value
+		if characterName == "" || handle == "" {
+			fmt.Println("invalid command: Expected: alias <characterName> <handle>")
+			return
+		}
+		err := alias.AddAlias(characterName, handle)
+		if err != nil {
+			fmt.Printf("AddAlias(): %s\n", err)
 		}
 	case "ping":
 		fmt.Println("Pong")

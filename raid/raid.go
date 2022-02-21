@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/core"
 	"github.com/Valorith/EQRaidAssist/player"
 )
@@ -108,14 +109,16 @@ func (raid Raid) PrintParticipation() error {
 	fmt.Println("Print Raid: " + fileName)
 	//Increment checkinCounts
 	fmt.Println("Checkin Count:", len(ActiveRaid.Checkins))
+	index := 1
 	for playerName, checkIns := range ActiveRaid.Checkins {
 		//fmt.Printf("%s has checked in %d times\n", playerName, checkIns)
 		//Ensure player is on the current player list
 		if playerStillActive(playerName) {
-			fmt.Printf("%s: %d [Active]\n", playerName, checkIns)
+			fmt.Printf("%d) %s: %d [Active]\n", index, playerName, checkIns)
 		} else {
-			fmt.Printf("%s: %d [Inactive]\n", playerName, checkIns)
+			fmt.Printf("%d) %s: %d [Inactive]\n", index, playerName, checkIns)
 		}
+		index++
 	}
 	return nil
 }
@@ -327,23 +330,29 @@ func playerStillActive(name string) bool {
 	return false
 }
 
-func PlayerIsInRaid(player player.Player) bool {
-	for _, p := range ActiveRaid.Players {
-		if p.Name == player.Name {
-			//fmt.Printf("%s is already in the raid...\n", player.Name)
-			return true
-		}
-	}
-	return false
-}
-
-func AddPlayersToRaid() {
+func AddPlayersToRaid() error {
 	for _, player := range core.GetActivePlayers() {
-		if !PlayerIsInRaid(*player) {
+		if !PlayerIsInRaid(player.Name) {
+			handle := alias.TryToGetHandle(player.Name)
+			if PlayerIsInRaid(handle) {
+				return fmt.Errorf("player %s is already in the raid", handle)
+			}
+
 			fmt.Printf("Adding %s to raid...\n", player.Name)
 			ActiveRaid.Players = append(ActiveRaid.Players, player)
 		}
 	}
+	return nil
+}
+
+// Detirmine if the provided character name is present in the active raid
+func PlayerIsInRaid(characterName string) bool {
+	for _, player := range ActiveRaid.Players {
+		if player.Name == characterName {
+			return true
+		}
+	}
+	return false
 }
 
 // Saves the provided raid to a json file
