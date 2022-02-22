@@ -103,7 +103,7 @@ func (raid Raid) CheckIn() error {
 	//Increment checkinCounts
 	for playerName, checkIns := range raid.Checkins {
 		//Ensure player is on the current player list
-		if playerStillActive(playerName) {
+		if playerIsInCache(playerName) {
 			raid.Checkins[playerName] = checkIns + 1
 		}
 	}
@@ -126,7 +126,7 @@ func (raid Raid) PrintParticipation() error {
 	for playerName, checkIns := range ActiveRaid.Checkins {
 		//fmt.Printf("%s has checked in %d times\n", playerName, checkIns)
 		//Ensure player is on the current player list
-		if playerStillActive(playerName) {
+		if playerIsInCache(playerName) {
 			fmt.Printf("%d) %s: %d [Active]\n", index, playerName, checkIns)
 		} else {
 			fmt.Printf("%d) %s: %d [Inactive]\n", index, playerName, checkIns)
@@ -334,7 +334,7 @@ func parseFileDateTime(dateTime string) (int, int, int, int, int, int, error) {
 	return year, month, day, hour, minute, second, nil
 }
 
-func playerStillActive(name string) bool {
+func playerIsInCache(name string) bool {
 	for _, player := range core.GetActivePlayers() {
 		if player.Name == name {
 			return true
@@ -343,16 +343,14 @@ func playerStillActive(name string) bool {
 	return false
 }
 
-func AddPlayersToRaid() error {
-	for _, player := range core.GetActivePlayers() {
+func AddPlayersToRaid() {
+	// Ensure all players in core.Players are also in ActiveRaid.Players
+	for _, player := range core.Players {
 		if !PlayerIsInRaid(player.Name) {
 			fmt.Printf("Adding %s to raid...\n", player.Name)
 			ActiveRaid.Players = append(ActiveRaid.Players, player)
-		} else {
-			return fmt.Errorf("player %s is already in the raid", player.Name)
 		}
 	}
-	return nil
 }
 
 func PlayerIsInDisplayList(characterName string) bool {
@@ -361,7 +359,7 @@ func PlayerIsInDisplayList(characterName string) bool {
 	return ok
 }
 
-// Updates the DisplayList map with current player information, enforcing alias
+// Updates the DisplayList map with cached player information, enforcing alias
 func UpdateDisplayList() {
 	// Clear the DisplayList map
 	DisplayList = make(map[string]int)
@@ -372,6 +370,7 @@ func UpdateDisplayList() {
 		if !PlayerIsInDisplayList(handle) {
 			// Add the handle of the checkin character to the DisplayList map
 			DisplayList[handle] = GetHighestCheckin(handle)
+			fmt.Printf("Adding %s to DisplayList...\n", handle)
 		}
 	}
 }

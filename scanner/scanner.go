@@ -218,11 +218,13 @@ func scanRaid() error {
 		}
 		// Add the player to the players cache
 		core.AddPlayer(p)
+		fmt.Printf("%s added to the players cache\n", p.Name)
 		// Add the player to the raid if needed
 		if !raid.PlayerIsInRaid(p.Name) {
 			raid.AddPlayersToRaid()
 		}
 	}
+
 	// Display loaded character cache
 	fmt.Printf("%+v\n", core.Players)
 
@@ -238,12 +240,14 @@ func scanRaid() error {
 		raid.AddPlayersToRaid()
 	}
 
+	// Update the displayList
+	raid.UpdateDisplayList()
+
 	// Handle discord updates
 	if raidCreated {
 		// Send raid creation message to discord
 		raidCreated = false
 		raidRoster := alias.TryToGetHandle(characterName) + " has started a new raid!\n----------------\n"
-		raid.UpdateDisplayList()
 		index := 1
 		for handle := range raid.DisplayList {
 			raidRoster += fmt.Sprintf("%s) %s \n", fmt.Sprint(index), handle)
@@ -253,7 +257,6 @@ func scanRaid() error {
 	} else {
 		// Send raid checkin update to discord
 		raidRoster := alias.TryToGetHandle(characterName) + " has initiated a raid checkin!\n----------------\n"
-		raid.UpdateDisplayList()
 		index := 1
 		for handle, checkins := range raid.DisplayList {
 			raidRoster += fmt.Sprintf("%s) %s: %d \n", fmt.Sprint(index), handle, checkins)

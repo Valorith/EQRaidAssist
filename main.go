@@ -223,7 +223,7 @@ func getUserInput(input, subcommand, value string) {
 			}
 		case "guildalias":
 			fmt.Println("Importing the guild list from file and generating the alias list...")
-			err := alias.GenerageAliasListFromGuildList()
+			err := alias.GenerateAliasListFromGuildList()
 			if err != nil {
 				fmt.Printf("GenerageAliasListFromGuildList(): %s\n", err)
 			}

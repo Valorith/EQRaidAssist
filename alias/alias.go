@@ -345,7 +345,7 @@ func ReadGuildMembers() error {
 }
 
 // Generage a new alias list from the loaded Guild List
-func GenerageAliasListFromGuildList() error {
+func GenerateAliasListFromGuildList() error {
 	// Flushing active alias list
 	fmt.Println("Flushing active alias list...")
 	ActiveAliases.List = []Alias{}
@@ -353,7 +353,7 @@ func GenerageAliasListFromGuildList() error {
 	// Read in guild members
 	err := ReadGuildMembers()
 	if err != nil {
-		return fmt.Errorf("GenerageAliasListFromGuildList(): ReadGuildMembers(): %w", err)
+		return fmt.Errorf("GenerateAliasListFromGuildList(): ReadGuildMembers(): %w", err)
 	}
 
 	for _, guildMember := range ActiveGuildMembers.List {
@@ -362,7 +362,7 @@ func GenerageAliasListFromGuildList() error {
 
 		err := AddAlias(charName, charHandle)
 		if err != nil {
-			return fmt.Errorf("GenerageAliasListFromGuildList(): AddAlias(): %w", err)
+			return fmt.Errorf("GenerateAliasListFromGuildList(): AddAlias(): %w", err)
 		}
 	}
 	return nil

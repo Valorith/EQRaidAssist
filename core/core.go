@@ -10,6 +10,7 @@ var (
 	Players []*player.Player // Players detected within the raid dump file
 )
 
+// Returns the current player cache
 func GetActivePlayers() []*player.Player {
 	return Players
 }
