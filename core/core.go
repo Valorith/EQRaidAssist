@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	Players []*player.Player // Players detected within the raid dump file
+	Players   []*player.Player // Players detected within the raid dump file
+	Rebooting bool             = false
 )
 
 // Returns the current player cache

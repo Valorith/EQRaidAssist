@@ -185,6 +185,10 @@ func getUserInput(input, subcommand, value string) {
 			if err != nil {
 				fmt.Printf("getUserInput: invalid character name: %s->%s", value, err)
 			}
+
+			if scanner.IsRunning() {
+				scanner.Reboot()
+			}
 		case "token":
 			fmt.Println("Setting bot token to:", value)
 			err = config.SetBotToken(value)
@@ -243,6 +247,12 @@ func getUserInput(input, subcommand, value string) {
 				}
 			} else {
 				fmt.Printf("ActiveRaid.CheckIn(): %s\n", "invalid subcommand")
+			}
+		case "reboot":
+			if scanner.IsRunning() {
+				scanner.Reboot()
+			} else {
+				fmt.Println("The scanner is not running...")
 			}
 		case "reset":
 			/*

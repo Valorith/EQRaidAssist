@@ -32,6 +32,7 @@ var (
 	serverName        string // Server short name for reference in the log file directory
 	characterName     string // Character name for reference in the log file directory
 	startTime         []int  // Time the scanner was started
+	RebootSavedFile   string // File directory for save file during scanner reboot
 )
 
 func ResetData() {
@@ -45,6 +46,16 @@ func ResetData() {
 	serverName = ""
 	characterName = ""
 	startTime = nil
+}
+
+// Reboot the scanner and save the state
+func Reboot() {
+	if isStarted {
+		RebootSavedFile = loadedLogFile
+		core.Rebooting = true
+		Stop()
+		Start()
+	}
 }
 
 // Returns true if the file scanner is currently active
@@ -108,9 +119,11 @@ func Start() {
 	OrganizeRaidDumps()
 
 	isStarted = true
-	err = setStartTime()
-	if err != nil {
-		fmt.Printf("scanner.Start(): setStartTime: %s", err)
+	if !core.Rebooting {
+		err = setStartTime()
+		if err != nil {
+			fmt.Printf("scanner.Start(): setStartTime: %s", err)
+		}
 	}
 	raidFrequency = 10 * time.Second
 	raidFrequencyChan = make(chan int)
@@ -129,13 +142,18 @@ func Start() {
 	fmt.Println("Listening...")
 }
 
-// Stop stops the scanner
+// Stop the scanner
 func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
 	isStarted = false
 	stopSignalChan <- true
-	fmt.Println("Scanner Shutting Down...")
+	if core.Rebooting {
+		fmt.Println("Scanner Rebooting...")
+	} else {
+		fmt.Println("Scanner Shutting Down...")
+	}
+
 }
 
 // loops for as long as scanner is running (noted by isStarted)
@@ -191,6 +209,10 @@ func scanRaid() error {
 	}
 	if !fileRecent {
 		return nil
+	}
+
+	if core.Rebooting {
+		loadedRaidFile = RebootSavedFile
 	}
 
 	// Check for new raid initiation
@@ -264,7 +286,7 @@ func scanRaid() error {
 		}
 		discord.SendEmbedMessage("Raid Checkin!", raidRoster, 2)
 	}
-
+	core.Rebooting = false
 	return nil
 }
 
