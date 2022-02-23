@@ -111,6 +111,26 @@ func (raid Raid) CheckIn() error {
 	return nil
 }
 
+func (raid Raid) PrintLoot() {
+	// Display the loot for the raid
+	for _, player := range raid.Players {
+		fmt.Printf("Name: %s\nLoot:\n", player.Name)
+		for index, lootItem := range player.Loot {
+			fmt.Printf("%d) %s\n", index+1, lootItem.Name)
+		}
+	}
+}
+
+func (raid Raid) GetPlayerByName(playerName string) *player.Player {
+	// Get player by name
+	for _, player := range raid.Players {
+		if player.Name == playerName {
+			return player
+		}
+	}
+	return nil
+}
+
 func (raid Raid) PrintParticipation() error {
 	if !raid.Active {
 		return fmt.Errorf("Raid is not active")
@@ -137,7 +157,7 @@ func (raid Raid) PrintParticipation() error {
 }
 
 func (raid Raid) Save() error {
-	err := SaveRaid(ActiveRaid)
+	err := SaveRaid(raid)
 	if err != nil {
 		return fmt.Errorf("error saving raid: %s", err)
 	}

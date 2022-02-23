@@ -8,11 +8,17 @@ import (
 
 // Represents an EverQuest player
 type Player struct {
-	Name  string   // Name of the player
-	Level int      // Level of the player
-	Class string   // Class of the player
-	Group int      // Raid Group number
-	Loot  []string // Loot attributed to the player
+	Name  string     `json:"name"`     // Name of the player
+	Level int        `json:"level"`    // Level of the player
+	Class string     `json:"class"`    // Class of the player
+	Group int        `json:"group"`    // Raid Group number
+	Loot  []LootItem `json:"lootitem"` // Loot attributed to the player
+}
+
+type LootItem struct {
+	Name        string `json:"name"`
+	Count       int    `json:"count"`
+	Description string `json:"description"`
 }
 
 // NewFromLine takes a line argument and creates a new player
@@ -47,18 +53,18 @@ func (p *Player) String() string {
 	out = fmt.Sprintf("%s\nGroup Number: %d", out, p.Group)
 	out = fmt.Sprintf("%s\nLoot: ", out)
 	for _, lootItem := range p.Loot {
-		out = fmt.Sprintf("%s\t %s\n", out, lootItem)
+		out = fmt.Sprintf("%s\t %s\n", out, lootItem.Name)
 	}
 	out = fmt.Sprintf("%s\n------------------\n", out)
 	return out
 }
 
-func (p *Player) AddLoot(lootItem string) error {
-	if lootItem != "" {
-		p.Loot = append(p.Loot, lootItem)
+func (p *Player) AddLoot(item LootItem) error {
+	if item.Name != "" {
+		p.Loot = append(p.Loot, item)
 	} else {
-		fmt.Println("Error adding loot item: ", lootItem)
-		return fmt.Errorf("player: AddLoot: Error adding loot item: %s to player (%s)", lootItem, p.Name)
+		fmt.Println("Error adding loot item: ", item)
+		return fmt.Errorf("player: AddLoot: Error adding loot item: %s to player (%s)", item.Name, p.Name)
 	}
 	return nil
 }

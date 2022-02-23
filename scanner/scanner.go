@@ -338,16 +338,17 @@ func scanLog() {
 			// Send discord message via WebHook
 			discord.SendMessage(lootMessage, 1)
 
-			// Assign loot to specific player
-			for _, player := range core.Players {
-				if player.Name == charName {
-					err = player.AddLoot(itemName)
+			// Assign loot to specific cached player
+			for _, p := range core.Players {
+				if p.Name == charName {
+					err = p.AddLoot(player.LootItem{Name: itemName, Count: 1, Description: ""})
 					if err != nil {
 						fmt.Printf("scanLog: player.AddLoot: %s", err)
 					}
 					break
 				}
 			}
+			raid.ActiveRaid.Save()
 		}
 	}
 }

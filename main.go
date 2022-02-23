@@ -272,6 +272,12 @@ func getUserInput(input, subcommand, value string) {
 		case "server":
 			serverName := scanner.GetServerName()
 			fmt.Println("Server Name:", serverName)
+		case "loot":
+			if raid.Active {
+				raid.ActiveRaid.PrintLoot()
+			} else {
+				fmt.Println("No active raid")
+			}
 		case "character":
 			characterName := scanner.GetCharacterName()
 			fmt.Println("Character Name:", characterName)
