@@ -8,6 +8,7 @@ import (
 
 	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/mongodb"
 	"github.com/Valorith/EQRaidAssist/raid"
 	"github.com/Valorith/EQRaidAssist/scanner"
 )
@@ -21,6 +22,11 @@ func main() {
 	var err error
 	var count int //scanline arg return count
 	var userInput string
+
+	err = mongodb.Connect()
+	if err != nil {
+		fmt.Println("main: failed to connect to mongodb:", err)
+	}
 
 	err = config.ReadConfig()
 	if err != nil {
