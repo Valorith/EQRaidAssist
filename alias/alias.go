@@ -66,14 +66,25 @@ func (aliases *Aliases) PrintAliases() error {
 }
 
 func (aliases *Aliases) UpdateDB() error {
-	if mongodb.AliasDB.Connected {
-		fmt.Println("Dropping Alias Collection...")
-		mongodb.AliasDB.Collection.Drop(mongodb.AliasDB.Context)
-		for _, alias := range aliases.List {
-			fmt.Printf("Updating DB with alias: %s\n", alias.Handle)
-			mongodb.AliasDB.Insert(alias)
+	if !mongodb.AliasDB.Connected {
+		//return fmt.Errorf("aliases: UpdateDB(): alias database not connected")
+		err := mongodb.AliasDB.Connect()
+		if err != nil {
+			return fmt.Errorf("aliases: UpdateDB(): mongodb.AliasDB.Connect(): %w", err)
 		}
-
+	}
+	fmt.Println("Dropping Alias Collection...")
+	mongodb.AliasDB.Collection.Drop(mongodb.AliasDB.Context)
+	for _, alias := range aliases.List {
+		fmt.Printf("Updating DB with alias: %s\n", alias.Handle)
+		err := mongodb.AliasDB.Insert(alias)
+		if err != nil {
+			return fmt.Errorf("aliases.UpdateDB(): mongodb.AliasDB.Insert(): %w", err)
+		}
+	}
+	err := mongodb.AliasDB.Disconnect()
+	if err != nil {
+		return fmt.Errorf("aliases.UpdateDB(): mongodb.AliasDB.Disconnect(): %w", err)
 	}
 	return nil
 }
@@ -81,7 +92,11 @@ func (aliases *Aliases) UpdateDB() error {
 func (aliases *Aliases) LoadFromDB() error {
 	// Ensure the database is connected
 	if !mongodb.AliasDB.Connected {
-		return fmt.Errorf("LoadFromDB(): alias database not connected")
+		//return fmt.Errorf("LoadFromDB(): alias database not connected")
+		err := mongodb.AliasDB.Connect()
+		if err != nil {
+			return fmt.Errorf("LoadFromDB(): mongodb.AliasDB.Connect(): %w", err)
+		}
 	}
 
 	// Get the list of aliases from the database
@@ -100,6 +115,10 @@ func (aliases *Aliases) LoadFromDB() error {
 
 	aliases.List = loadedAliases
 
+	err = mongodb.AliasDB.Disconnect()
+	if err != nil {
+		return fmt.Errorf("LoadFromDB(): mongodb.AliasDB.Disconnect(): %w", err)
+	}
 	return nil
 }
 

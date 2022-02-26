@@ -60,6 +60,26 @@ func (raid *RaidCollection) AddRaid(newRaid Raid) error {
 	return nil
 }
 
+func Stop() error {
+	if !Active {
+		return fmt.Errorf("Raid is not active")
+	}
+	ActiveRaid.CheckIn()
+	Active = false
+	ActiveRaid.Active = false
+	AllRaids.RaidList = append(AllRaids.RaidList, ActiveRaid)
+	err := ActiveRaid.AddToDB()
+	if err != nil {
+		return fmt.Errorf("Stop(): ActiveRaid.AddToDB(): %w", err)
+	}
+	err = ActiveRaid.SaveToFile()
+	if err != nil {
+		return fmt.Errorf("Stop(): ActiveRaid.SaveToFile(): %w", err)
+	}
+	return nil
+}
+
+// Forces the raid database to match the local raid collection
 func (raids *RaidCollection) UpdateDB() error {
 	if !mongodb.RaidsDB.Connected {
 		return fmt.Errorf("RaidCollection: UpdateDB(): raid database not connected")
@@ -68,15 +88,45 @@ func (raids *RaidCollection) UpdateDB() error {
 	mongodb.RaidsDB.Collection.Drop(mongodb.RaidsDB.Context)
 	for _, raid := range raids.RaidList {
 		fmt.Printf("Updating DB with raid: %s\n", raid.Name)
-		mongodb.RaidsDB.Insert(raid)
+		err := mongodb.RaidsDB.Insert(raid)
+		if err != nil {
+			return fmt.Errorf("UpdateDB(): mongodb.RaidsDB.Insert(): %w", err)
+		}
 	}
 	return nil
 }
 
+// Adds the raid to the database
+func (raid Raid) AddToDB() error {
+	if !mongodb.RaidsDB.Connected {
+		//return fmt.Errorf("RaidCollection: UpdateDB(): raid database not connected")
+		err := mongodb.RaidsDB.Connect()
+		if err != nil {
+			return fmt.Errorf("RaidCollection: AddToDB(): mongodb.RaidsDB.Connect(): %w", err)
+		}
+	}
+	// Add provided raid to the raids database
+	fmt.Printf("Adding (%s) raid to the database...\n", raid.Name)
+	err := mongodb.RaidsDB.Insert(raid)
+	if err != nil {
+		return fmt.Errorf("AddToDB(): mongodb.RaidsDB.Insert(): %w", err)
+	}
+	err = mongodb.RaidsDB.Disconnect()
+	if err != nil {
+		return fmt.Errorf("AddToDB(): mongodb.RaidsDB.Disconnect(): %w", err)
+	}
+	return nil
+}
+
+// Loads the raids database into the Raid Collection
 func (raids *RaidCollection) LoadFromDB() error {
 	// Ensure the database is connected
 	if !mongodb.RaidsDB.Connected {
-		return fmt.Errorf("LoadFromDB(): alias database not connected")
+		//return fmt.Errorf("LoadFromDB(): alias database not connected")
+		err := mongodb.RaidsDB.Connect()
+		if err != nil {
+			return fmt.Errorf("LoadFromDB(): mongodb.RaidsDB.Connect(): %w", err)
+		}
 	}
 
 	// Get the list of raids from the database
@@ -95,10 +145,14 @@ func (raids *RaidCollection) LoadFromDB() error {
 
 	// Add all loaded raids to the raid collection
 	raids.RaidList = loadedRaids
-
+	err = mongodb.RaidsDB.Disconnect()
+	if err != nil {
+		return fmt.Errorf("LoadFromDB(): mongodb.RaidsDB.Disconnect(): %w", err)
+	}
 	return nil
 }
 
+// Starts a new raid session
 func Start() error {
 	if Active {
 		return fmt.Errorf("Raid is already active")
@@ -123,7 +177,7 @@ func Start() error {
 		Active:      true}
 	//-----------------------
 	ActiveRaid.initializeCheckins()
-	ActiveRaid.Save()
+	ActiveRaid.SaveToFile()
 	return nil
 }
 
@@ -148,7 +202,7 @@ func (raid Raid) initializeCheckins() {
 
 func (raid Raid) CheckIn() error {
 
-	//Ensure Everyone in the raid is the checkins map (default to 0)
+	//Ensure Everyone in the raid is in the checkins map (default to 0)
 	for _, player := range raid.Players {
 		if _, ok := raid.Checkins[player.Name]; !ok {
 			raid.Checkins[player.Name] = 0
@@ -162,7 +216,7 @@ func (raid Raid) CheckIn() error {
 			raid.Checkins[playerName] = checkIns + 1
 		}
 	}
-	ActiveRaid.Save()
+	ActiveRaid.SaveToFile()
 	return nil
 }
 
@@ -211,7 +265,7 @@ func (raid Raid) PrintParticipation() error {
 	return nil
 }
 
-func (raid Raid) Save() error {
+func (raid Raid) SaveToFile() error {
 	err := SaveRaid(raid)
 	if err != nil {
 		return fmt.Errorf("error saving raid: %s", err)

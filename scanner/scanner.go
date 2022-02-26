@@ -147,6 +147,10 @@ func Stop() {
 	mu.Lock()
 	defer mu.Unlock()
 	isStarted = false
+	err := raid.Stop()
+	if err != nil {
+		fmt.Println("scanner.Stop(): raid.Stop:", err)
+	}
 	stopSignalChan <- true
 	if core.Rebooting {
 		fmt.Println("Scanner Rebooting...")
@@ -348,7 +352,7 @@ func scanLog() {
 					break
 				}
 			}
-			raid.ActiveRaid.Save()
+			raid.ActiveRaid.SaveToFile()
 		}
 	}
 }

@@ -52,8 +52,14 @@ func Init() {
 }
 
 func DisconnectALL() {
-	AliasDB.Disconnect()
-	RaidsDB.Disconnect()
+	err := AliasDB.Disconnect()
+	if err != nil {
+		fmt.Println("Error disconnecting from alias database:", err)
+	}
+	err = RaidsDB.Disconnect()
+	if err != nil {
+		fmt.Println("Error disconnecting from raids database:", err)
+	}
 }
 
 func (db *database) Connect() error {
@@ -107,14 +113,18 @@ func (db *database) Connect() error {
 
 func (db *database) Disconnect() error {
 	defer db.Client.Disconnect(db.Context)
-	db.Connected = true
+	db.Connected = false
 	return nil
 }
 
 // Inserts a struct of data into the database
 func (db *database) Insert(data interface{}) error {
 	if db.Connected {
-		db.Collection.InsertOne(db.Context, data)
+		result, err := db.Collection.InsertOne(db.Context, data)
+		if err != nil {
+			return fmt.Errorf("Insert(): error inserting data: %v", err)
+		}
+		fmt.Printf("Inserted data into database(%s\\%s\\%s)...Result ID: %s...\n", db.ClusterName, db.DatabaseName, db.CollectionName, result.InsertedID)
 		return nil
 	}
 	return fmt.Errorf("Insert(): database not connected")

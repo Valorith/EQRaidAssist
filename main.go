@@ -26,14 +26,22 @@ func main() {
 	mongodb.Init()
 	defer mongodb.DisconnectALL()
 
+	// Load the config file
 	err = config.ReadConfig()
 	if err != nil {
 		fmt.Printf("main: failed to read config: %s\n", err)
 	}
+	// Load the alias data from the database
 	err = alias.ActiveAliases.LoadFromDB()
 	if err != nil {
-		fmt.Printf("main: failed to read aliases: %s\n", err)
+		fmt.Printf("main: failed to load aliases: %s\n", err)
 	}
+	// Load the raid data from the database
+	err = raid.AllRaids.LoadFromDB()
+	if err != nil {
+		fmt.Printf("main: failed to load raids: %s\n", err)
+	}
+
 	for {
 		// If the character name is not set, request it
 		if !scanner.IsCharacterNameSet() {
