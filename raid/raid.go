@@ -12,13 +12,17 @@ import (
 
 	"github.com/Valorith/EQRaidAssist/alias"
 	"github.com/Valorith/EQRaidAssist/core"
+	"github.com/Valorith/EQRaidAssist/mongodb"
 	"github.com/Valorith/EQRaidAssist/player"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
 	mu          sync.Mutex
 	Active      bool
 	ActiveRaid  Raid
+	AllRaids    RaidCollection = RaidCollection{}
 	DisplayList map[string]int = map[string]int{}
 )
 
@@ -27,6 +31,10 @@ func ResetData() {
 	defer mu.Unlock()
 	Active = false
 	ActiveRaid = Raid{}
+}
+
+type RaidCollection struct {
+	RaidList []Raid `json:"raidList"`
 }
 
 type Raid struct {
@@ -42,6 +50,53 @@ type Raid struct {
 	Players     []*player.Player `json:"players"`     // List of players in the raid
 	FileName    string           `json:"filename"`
 	Active      bool             `json:"active"` // Indicates whether the raid is active or not
+}
+
+func (raid *RaidCollection) AddRaid(newRaid Raid) error {
+	if !Active {
+		return fmt.Errorf("Raid is not active")
+	}
+	raid.RaidList = append(raid.RaidList, newRaid)
+	return nil
+}
+
+func (raids *RaidCollection) UpdateDB() error {
+	if !mongodb.RaidsDB.Connected {
+		return fmt.Errorf("RaidCollection: UpdateDB(): raid database not connected")
+	}
+	fmt.Println("Dropping Raids Collection...")
+	mongodb.RaidsDB.Collection.Drop(mongodb.RaidsDB.Context)
+	for _, raid := range raids.RaidList {
+		fmt.Printf("Updating DB with raid: %s\n", raid.Name)
+		mongodb.RaidsDB.Insert(raid)
+	}
+	return nil
+}
+
+func (raids *RaidCollection) LoadFromDB() error {
+	// Ensure the database is connected
+	if !mongodb.RaidsDB.Connected {
+		return fmt.Errorf("LoadFromDB(): alias database not connected")
+	}
+
+	// Get the list of raids from the database
+	//opts := options.Find().SetSort(bson.D{}) // example: {Key: "handle", Value: Valgor}
+	opts := options.Find().SetProjection(bson.D{{Key: "_id", Value: 0}}) // Ignore _id field
+	loadedData, err := mongodb.RaidsDB.Collection.Find(mongodb.RaidsDB.Context, bson.M{}, opts)
+	if err != nil {
+		return fmt.Errorf("LoadFromDB(): mongodb.RaidsDB.Collection.Find(): %w", err)
+	}
+
+	// Get all entires from the returned data
+	var loadedRaids []Raid
+	if err = loadedData.All(mongodb.RaidsDB.Context, &loadedRaids); err != nil {
+		return fmt.Errorf("LoadFromDB(): loadedData.All(): %w", err)
+	}
+
+	// Add all loaded raids to the raid collection
+	raids.RaidList = loadedRaids
+
+	return nil
 }
 
 func Start() error {

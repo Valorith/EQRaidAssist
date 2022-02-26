@@ -23,16 +23,14 @@ func main() {
 	var count int //scanline arg return count
 	var userInput string
 
-	err = mongodb.Connect()
-	if err != nil {
-		fmt.Println("main: failed to connect to mongodb:", err)
-	}
+	mongodb.Init()
+	defer mongodb.DisconnectALL()
 
 	err = config.ReadConfig()
 	if err != nil {
 		fmt.Printf("main: failed to read config: %s\n", err)
 	}
-	err = alias.ReadAliases()
+	err = alias.ActiveAliases.LoadFromDB()
 	if err != nil {
 		fmt.Printf("main: failed to read aliases: %s\n", err)
 	}
@@ -232,10 +230,16 @@ func getUserInput(input, subcommand, value string) {
 				fmt.Printf("getUserInput: %s->%s\n", value, err)
 			}
 		case "guildalias":
+			// Get a new alias list from the detected guild roster dump
 			fmt.Println("Importing the guild list from file and generating the alias list...")
 			err := alias.GenerateAliasListFromGuildList()
 			if err != nil {
 				fmt.Printf("GenerageAliasListFromGuildList(): %s\n", err)
+			}
+			// Update database with new alias list
+			err = alias.ActiveAliases.UpdateDB()
+			if err != nil {
+				fmt.Printf("ActiveAliases.UpdateDB(): %s\n", err)
 			}
 		case "timer":
 			fmt.Println("Setting timer to:", value)
@@ -399,5 +403,9 @@ func getUserInput(input, subcommand, value string) {
 
 func close() {
 	fmt.Println("Cleaning up before exit...")
+	if raid.Active {
+		raid.Active = false
+
+	}
 	config.SaveConfig()
 }

@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/mongodb"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Alias struct {
@@ -43,7 +46,7 @@ var (
 	ActiveGuildMembers GuildMembers
 )
 
-func (aliases Aliases) PrintAliases() error {
+func (aliases *Aliases) PrintAliases() error {
 	if len(aliases.List) == 0 {
 		return fmt.Errorf("PrintAliases(): there are no aliases to print")
 	}
@@ -59,6 +62,44 @@ func (aliases Aliases) PrintAliases() error {
 		}
 
 	}
+	return nil
+}
+
+func (aliases *Aliases) UpdateDB() error {
+	if mongodb.AliasDB.Connected {
+		fmt.Println("Dropping Alias Collection...")
+		mongodb.AliasDB.Collection.Drop(mongodb.AliasDB.Context)
+		for _, alias := range aliases.List {
+			fmt.Printf("Updating DB with alias: %s\n", alias.Handle)
+			mongodb.AliasDB.Insert(alias)
+		}
+
+	}
+	return nil
+}
+
+func (aliases *Aliases) LoadFromDB() error {
+	// Ensure the database is connected
+	if !mongodb.AliasDB.Connected {
+		return fmt.Errorf("LoadFromDB(): alias database not connected")
+	}
+
+	// Get the list of aliases from the database
+	//opts := options.Find().SetSort(bson.D{}) // example: {Key: "handle", Value: Valgor}
+	opts := options.Find().SetProjection(bson.D{{Key: "_id", Value: 0}}) // Ignore _id field
+	loadedData, err := mongodb.AliasDB.Collection.Find(mongodb.AliasDB.Context, bson.M{}, opts)
+	if err != nil {
+		return fmt.Errorf("LoadFromDB(): mongodb.AliasDB.Collection.Find(): %w", err)
+	}
+
+	// Get all entires from the returned data
+	var loadedAliases []Alias
+	if err = loadedData.All(mongodb.AliasDB.Context, &loadedAliases); err != nil {
+		return fmt.Errorf("LoadFromDB(): loadedData.All(): %w", err)
+	}
+
+	aliases.List = loadedAliases
+
 	return nil
 }
 
@@ -107,10 +148,18 @@ func AddAlias(characterName, handle string) error {
 		ActiveAliases.List = append(ActiveAliases.List, newAlias)
 		fmt.Printf("%s added as an alias of handle: %s\n", characterName, handle)
 	}
+
+	err := ActiveAliases.UpdateDB()
+	if err != nil {
+		return fmt.Errorf("AddAlias(): ActiveAliases.UpdateDB(): %w", err)
+	}
+
+	/* [Disabled in lieu of MongoDB]
 	err := SaveAliases()
 	if err != nil {
 		return fmt.Errorf("AddAlias(): SaveAliases(): %w", err)
 	}
+	*/
 	return nil
 }
 
@@ -197,7 +246,7 @@ func SaveAliases() error {
 }
 
 // Load in the alias list from a json file
-func ReadAliases() error {
+func ReadAliasesFromFile() error {
 	fmt.Println("Reading alias file...")
 	created, err := checkAliasFile()
 	if err != nil {

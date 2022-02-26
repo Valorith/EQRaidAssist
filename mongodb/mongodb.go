@@ -5,60 +5,119 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/net/context"
 )
 
-/*
-type database struct {
-	client  *mongo.Client
-	context context.Context
-}
-*/
+var ( // Databases
+	// Database storing alias data
+	AliasDB = database{}
+	RaidsDB = database{}
+)
 
-func Connect() error {
+// Represents data associated with a single mongodb connection
+type database struct {
+	Client         *mongo.Client     `json:"client"`
+	Context        context.Context   `json:"context"`
+	Username       string            `json:"username"`
+	Password       string            `json:"password"`
+	ClusterName    string            `json:"clusterName"`
+	DatabaseName   string            `json:"databaseName"`
+	CollectionName string            `json:"collectionName"`
+	Collection     *mongo.Collection `json:"collection"`
+	DbString       string            `json:"dbString"`
+	Connected      bool              `json:"connected"`
+}
+
+func Init() {
+	// Connect to alias database
+	AliasDB.ClusterName = "cluster0"
+	AliasDB.DatabaseName = "CWRaidAssist"
+	AliasDB.CollectionName = "aliases"
+	err := AliasDB.Connect()
+	if err != nil {
+		fmt.Println("Error connecting to database:", err)
+	}
+
+	// Connect to raids database
+	RaidsDB.ClusterName = "cluster0"
+	RaidsDB.DatabaseName = "CWRaidAssist"
+	RaidsDB.CollectionName = "raids"
+	err = RaidsDB.Connect()
+	if err != nil {
+		fmt.Println("Error connecting to database:", err)
+	}
+
+}
+
+func DisconnectALL() {
+	AliasDB.Disconnect()
+	RaidsDB.Disconnect()
+}
+
+func (db *database) Connect() error {
 	// Set client options
 	fmt.Println("Configuring database connection...")
+	// Load .env
 	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Connect(): error reading config file:%s", err)
 	}
-	USERNAME := getEnvVarString("MONGODB_USERNAME")
-	PASSWORD := getEnvVarString("MONGODB_PASSWORD")
-	DBString := "mongodb+srv://" + USERNAME + ":" + PASSWORD + "@cluster0.t0wb9.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
-	client, err := mongo.NewClient(options.Client().ApplyURI(DBString))
+	// If credentials are not set, attempt to load them from .env
+	if db.Username == "" {
+		db.Username = getEnvVarString("MONGODB_USERNAME")
+		db.Password = getEnvVarString("MONGODB_PASSWORD")
+	}
+
+	// Set dbString
+	db.DbString = "mongodb+srv://" + db.Username + ":" + db.Password + "@" + db.ClusterName + ".t0wb9.mongodb.net/" + db.DatabaseName + "?retryWrites=true&w=majority"
+
+	// Set client
+	db.Client, err = mongo.NewClient(options.Client().ApplyURI(db.DbString))
 	if err != nil {
 		return fmt.Errorf("Connect(): error creating mongo client: %v", err)
 	}
+
 	// Set context
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	fmt.Println("Attempting to connect to database...")
-	err = client.Connect(ctx)
+	db.Context, _ = context.WithTimeout(context.Background(), 10*time.Second)
+
+	//Set Collection
+	db.Collection = db.Client.Database(db.DatabaseName).Collection(db.CollectionName)
+
+	// Connect to MongoDB
+	fmt.Printf("Attempting to connect to database(%s\\%s\\%s)...\n", db.ClusterName, db.DatabaseName, db.CollectionName)
+	err = db.Client.Connect(db.Context)
 	if err != nil {
 		return fmt.Errorf("Connect(): error connecting to mongo: %v", err)
 	}
 	fmt.Println("Connected to database.")
-	defer client.Disconnect(ctx)
+
+	// Test connection
 	fmt.Println("Testing database connetion...")
-	err = client.Ping(ctx, nil)
+	err = db.Client.Ping(db.Context, nil)
 	if err != nil {
 		return fmt.Errorf("Connect(): error pinging mongo: %v", err)
 	}
 	fmt.Println("Database test succesful.")
-
-	databases, err := client.ListDatabaseNames(ctx, bson.M{})
-	if err != nil {
-		return fmt.Errorf("Connect(): error listing databases: %v", err)
-	}
-	fmt.Println("Databases:")
-	for _, database := range databases {
-		fmt.Println("\t", database)
-	}
-
+	db.Connected = true
 	return nil
+}
+
+func (db *database) Disconnect() error {
+	defer db.Client.Disconnect(db.Context)
+	db.Connected = true
+	return nil
+}
+
+// Inserts a struct of data into the database
+func (db *database) Insert(data interface{}) error {
+	if db.Connected {
+		db.Collection.InsertOne(db.Context, data)
+		return nil
+	}
+	return fmt.Errorf("Insert(): database not connected")
 }
 
 func getEnvVarString(key string) string {
