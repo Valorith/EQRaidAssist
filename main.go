@@ -23,7 +23,6 @@ func main() {
 	var count int //scanline arg return count
 	var userInput string
 
-	mongodb.Init()
 	defer mongodb.DisconnectALL()
 
 	// Load the config file
@@ -31,6 +30,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("main: failed to read config: %s\n", err)
 	}
+
+	// Initialize database connections
+	mongodb.Init()
+
 	// Load the alias data from the database
 	err = alias.ActiveAliases.LoadFromDB()
 	if err != nil {
@@ -271,6 +274,20 @@ func getUserInput(input, subcommand, value string) {
 				scanner.Reboot()
 			} else {
 				fmt.Println("The scanner is not running...")
+			}
+		case "dbusername":
+			fmt.Println("Setting database username to:", value)
+			// convert string to int
+			err := config.SetDBUsername(value)
+			if err != nil {
+				fmt.Printf("set dbusername error: : %s\n", err)
+			}
+		case "dbpassword":
+			fmt.Println("Setting database password to:", value)
+			// convert string to int
+			err := config.SetDBPassword(value)
+			if err != nil {
+				fmt.Printf("set dbpassword error: : %s\n", err)
 			}
 		case "reset":
 			/*

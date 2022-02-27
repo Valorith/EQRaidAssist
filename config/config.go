@@ -9,11 +9,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Valorith/EQRaidAssist/core"
 	"github.com/Valorith/EQRaidAssist/loadFile"
 )
 
 var (
 	// Public variables
+	MONGODB_USERNAME string
+	MONGODB_PASSWORD string
 	Token            string
 	BotPrefix        string
 	LootChannel      string
@@ -39,6 +42,8 @@ func ResetData() {
 }
 
 type configStruct struct {
+	MONGODB_USERNAME string `json:"mongodbUsername"`
+	MONGODB_PASSWORD string `json:"mongodbPassword"`
 	Token            string `json:"Token"`
 	BotPrefix        string `json:"BotPrefix"`
 	LootChannel      string `json:"LootChannel"`
@@ -67,6 +72,54 @@ func SetBotToken(token string) error {
 	err := SaveConfig()
 	if err != nil {
 		return fmt.Errorf("SetBotToken(): %w", err)
+	}
+	return nil
+}
+
+func GetMongoUN() (string, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if MONGODB_USERNAME == "" {
+		return "", fmt.Errorf("mongo username not set")
+	}
+	return MONGODB_USERNAME, nil
+}
+
+func SetMongoUN(username string) error {
+	mu.RLock()
+	defer mu.RUnlock()
+	if MONGODB_USERNAME == "" {
+		return fmt.Errorf("SetMongoUN(): provided username is invalid")
+	}
+	config.MONGODB_USERNAME = username
+	MONGODB_USERNAME = username
+	err := SaveConfig()
+	if err != nil {
+		return fmt.Errorf("SetMongoUN(): %w", err)
+	}
+	return nil
+}
+
+func GetMongoPW() (string, error) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if MONGODB_PASSWORD == "" {
+		return "", fmt.Errorf("mongo password not set")
+	}
+	return MONGODB_PASSWORD, nil
+}
+
+func SetMongoPW(password string) error {
+	mu.RLock()
+	defer mu.RUnlock()
+	if MONGODB_PASSWORD == "" {
+		return fmt.Errorf("SetMongoUN(): provided password is invalid")
+	}
+	config.MONGODB_PASSWORD = password
+	MONGODB_PASSWORD = password
+	err := SaveConfig()
+	if err != nil {
+		return fmt.Errorf("SetMongoPW(): %w", err)
 	}
 	return nil
 }
@@ -254,18 +307,58 @@ func ReadConfig() error {
 	//fmt.Println(string(file))
 
 	err = json.Unmarshal(file, &config)
-
 	if err != nil {
-		fmt.Println(err.Error())
-		return err
+		return fmt.Errorf("ReadConfig(): json.Unmarshal(): %w", err)
 	}
 
+	MONGODB_USERNAME = config.MONGODB_USERNAME
+	if MONGODB_USERNAME == "" {
+		fmt.Println("MONGODB_USERNAME not set in config.json...")
+	} else {
+		fmt.Println("MONGODB_USERNAME loaded from config.json...")
+	}
+	MONGODB_PASSWORD = config.MONGODB_PASSWORD
+	if MONGODB_USERNAME == "" {
+		fmt.Println("MONGODB_PASSWORD not set in config.json...")
+	} else {
+		fmt.Println("MONGODB_PASSWORD loaded from config.json...")
+	}
 	Token = config.Token
+	if Token == "" {
+		fmt.Println("Token not set in config.json...")
+	} else {
+		fmt.Println("Token loaded from config.json...")
+	}
 	BotPrefix = config.BotPrefix
+	if BotPrefix == "" {
+		fmt.Println("BotPrefix not set in config.json...")
+	} else {
+		fmt.Println("BotPrefix loaded from config.json...")
+	}
 	LootChannel = config.LootChannel
+	if LootChannel == "" {
+		fmt.Println("LootChannel not set in config.json...")
+	} else {
+		fmt.Println("LootChannel loaded from config.json...")
+	}
 	LootWebHookUrl = config.LootWebHookUrl
+	if LootWebHookUrl == "" {
+		fmt.Println("LootWebHookUrl not set in config.json...")
+	} else {
+		fmt.Println("LootWebHookUrl loaded from config.json...")
+	}
 	AttendWebHookUrl = config.AttendWebHookUrl
+	if AttendWebHookUrl == "" {
+		fmt.Println("AttendWebHookUrl not set in config.json...")
+	} else {
+		fmt.Println("AttendWebHookUrl loaded from config.json...")
+	}
 	GuildName = config.GuildName
+	if GuildName == "" {
+		fmt.Println("GuildName not set in config.json...")
+	} else {
+		fmt.Println("GuildName loaded from config.json...")
+	}
 
 	// Organize Raid Dump Files into subfolder
 	err = OrganizeRaidDumps()
@@ -317,6 +410,8 @@ func SaveConfig() error {
 func PrepareToSaveConfig() bool {
 	if config == nil {
 		tempConfig := configStruct{
+			MONGODB_USERNAME: "",
+			MONGODB_PASSWORD: "",
 			Token:            "",
 			BotPrefix:        "",
 			LootChannel:      "",
@@ -400,4 +495,32 @@ func getRaidDumpFiles(basePath string) ([]string, error) {
 
 	//fmt.Printf("Returning a fileList with %d files from inside (%s)...\n", len(raidDumpFileList), basePath)
 	return raidDumpFileList, nil
+}
+
+func SetDBUsername(username string) error {
+	var err error
+	if !(core.KEY == "") {
+		MONGODB_USERNAME, err = core.Encrypt(username, core.KEY)
+		if err != nil {
+			return fmt.Errorf("SetDBUsername(): Encrypt(): %w", err)
+		}
+		config.MONGODB_USERNAME = MONGODB_USERNAME
+		SaveConfig()
+		return nil
+	}
+	return fmt.Errorf("SetDBUsername(): key is not set")
+}
+
+func SetDBPassword(password string) error {
+	var err error
+	if !(core.KEY == "") {
+		MONGODB_PASSWORD, err = core.Encrypt(password, core.KEY)
+		if err != nil {
+			return fmt.Errorf("SetDBPassword(): Encrypt(): %w", err)
+		}
+		config.MONGODB_PASSWORD = MONGODB_PASSWORD
+		SaveConfig()
+		return nil
+	}
+	return fmt.Errorf("SetDBPassword(): key is not set")
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Valorith/EQRaidAssist/config"
+	"github.com/Valorith/EQRaidAssist/core"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -35,19 +37,11 @@ func Init() {
 	AliasDB.ClusterName = "cluster0"
 	AliasDB.DatabaseName = "CWRaidAssist"
 	AliasDB.CollectionName = "aliases"
-	err := AliasDB.Connect()
-	if err != nil {
-		fmt.Println("Error connecting to database:", err)
-	}
 
 	// Connect to raids database
 	RaidsDB.ClusterName = "cluster0"
 	RaidsDB.DatabaseName = "CWRaidAssist"
 	RaidsDB.CollectionName = "raids"
-	err = RaidsDB.Connect()
-	if err != nil {
-		fmt.Println("Error connecting to database:", err)
-	}
 
 }
 
@@ -65,6 +59,7 @@ func DisconnectALL() {
 func (db *database) Connect() error {
 	// Set client options
 	fmt.Println("Configuring database connection...")
+
 	// Load .env
 	viper.SetConfigFile(".env")
 	err := viper.ReadInConfig()
@@ -73,8 +68,28 @@ func (db *database) Connect() error {
 	}
 	// If credentials are not set, attempt to load them from .env
 	if db.Username == "" {
-		db.Username = getEnvVarString("MONGODB_USERNAME")
-		db.Password = getEnvVarString("MONGODB_PASSWORD")
+		// If the key is not set, import creds from .env
+		if core.KEY == "" {
+			db.Username = getEnvVarString("MONGODB_USERNAME")
+			db.Password = getEnvVarString("MONGODB_PASSWORD")
+		} else { // Otherwise, decrypt creds from config
+			if config.MONGODB_USERNAME == "" || config.MONGODB_PASSWORD == "" {
+				return fmt.Errorf("connect(): no database username/password loaded from the config file: (%s) (%s)", config.MONGODB_USERNAME, config.MONGODB_PASSWORD)
+			}
+			db.Username, err = core.Decrypt(config.MONGODB_USERNAME, core.KEY)
+			if err != nil {
+				return fmt.Errorf("Connect(): error decrypting username: %s", err)
+			}
+			db.Password, err = core.Decrypt(config.MONGODB_PASSWORD, core.KEY)
+			if err != nil {
+				return fmt.Errorf("Connect(): error decrypting password: %s", err)
+			}
+		}
+	}
+
+	// Validate that username and password are set
+	if db.Username == "" || db.Password == "" {
+		return fmt.Errorf("Connect(): username or password not set")
 	}
 
 	// Set dbString
